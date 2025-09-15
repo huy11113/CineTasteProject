@@ -23,4 +23,12 @@ public interface UserRepository extends JpaRepository<User, UUID> {
      * @return một Optional chứa User nếu tìm thấy.
      */
     Optional<User> findByEmail(String email);
+    /**
+     * Tìm kiếm một người dùng bằng username hoặc email.
+     * Spring Data JPA đủ thông minh để tự tạo ra câu lệnh SQL tương ứng.
+     * @param username Tên người dùng.
+     * @param email Email.
+     * @return một Optional chứa User nếu tìm thấy.
+     */
+    Optional<User> findByUsernameOrEmail(String username, String email);
 }

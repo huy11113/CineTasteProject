@@ -1,7 +1,10 @@
 package com.cinetaste.userservice.controller;
 
+import com.cinetaste.userservice.dto.LoginRequest;
+import com.cinetaste.userservice.dto.LoginResponse;
 import com.cinetaste.userservice.dto.RegisterRequest;
 import com.cinetaste.userservice.entity.User;
+import com.cinetaste.userservice.service.AuthenticationService;
 import com.cinetaste.userservice.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -15,7 +18,7 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final UserService userService;
-
+    private final AuthenticationService authenticationService;
     @PostMapping("/register")
     public ResponseEntity<?> registerUser(@Valid @RequestBody RegisterRequest registerRequest) {
         try {
@@ -24,5 +27,9 @@ public class AuthController {
         } catch (IllegalStateException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
+    }
+    @PostMapping("/login")
+    public ResponseEntity<LoginResponse> loginUser(@Valid @RequestBody LoginRequest loginRequest) {
+        return ResponseEntity.ok(authenticationService.login(loginRequest));
     }
 }
