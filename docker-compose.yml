@@ -1,0 +1,15 @@
+services:
+  postgres-db:
+    image: postgres:16-alpine
+    container_name: cinetaste-db
+    environment:
+      POSTGRES_USER: cinetaste_user
+      POSTGRES_PASSWORD: test123
+      POSTGRES_DB: cinetaste_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+volumes:
+  postgres_data:
