@@ -1,6 +1,7 @@
+// Vị trí: recipe-service/src/main/java/com/cinetaste/recipeservice/config/JwtAuthenticationFilter.java
 package com.cinetaste.recipeservice.config;
 
-import com.cinetaste.recipeservice.config.JwtService;
+import com.cinetaste.recipeservice.config.JwtService; // Sửa import này nếu cần
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -9,20 +10,20 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.ArrayList;
 
 @Component
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
-    private final UserDetailsService userDetailsService;
 
     @Override
     protected void doFilterInternal(
@@ -32,28 +33,23 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     ) throws ServletException, IOException {
 
         final String authHeader = request.getHeader("Authorization");
-        final String jwt;
-        final String username;
-
-        // 1. Kiểm tra xem có header "Authorization" và có bắt đầu bằng "Bearer " không
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        // 2. Tách lấy token từ header
-        jwt = authHeader.substring(7);
+        final String jwt = authHeader.substring(7);
+        final String username = jwtService.extractUsername(jwt);
 
-        // 3. Gọi JwtService để giải mã username từ token
-        username = jwtService.extractUsername(jwt);
-
-        // 4. Nếu có username và người dùng chưa được xác thực
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
+            // TẠO MỘT USERDETAILS GIẢ LẬP, KHÔNG CẦN TRUY VẤN DATABASE
+            UserDetails userDetails = User.withUsername(username)
+                    .password("") // Mật khẩu không quan trọng ở đây
+                    .authorities(new ArrayList<>())
+                    .build();
 
-            // 5. Kiểm tra xem token có hợp lệ không
+            // Chỉ kiểm tra chữ ký và thời hạn của token
             if (jwtService.isTokenValid(jwt, userDetails)) {
-                // Nếu hợp lệ, tạo một đối tượng xác thực và đưa vào SecurityContext
                 UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                         userDetails,
                         null,
@@ -62,6 +58,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 authToken.setDetails(
                         new WebAuthenticationDetailsSource().buildDetails(request)
                 );
+                // Đặt thông tin xác thực vào SecurityContext
                 SecurityContextHolder.getContext().setAuthentication(authToken);
             }
         }
