@@ -1,3 +1,4 @@
+// Vị trí: recipe-service/src/main/java/com/cinetaste/recipeservice/config/SecurityConfig.java
 package com.cinetaste.recipeservice.config;
 
 import lombok.RequiredArgsConstructor;
@@ -16,9 +17,6 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthFilter;
-
-    // Trong recipe-service, chúng ta không cần các Bean UserDetailsService,
-    // AuthenticationProvider, hay AuthenticationManager vì nó không trực tiếp xử lý đăng nhập.
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {

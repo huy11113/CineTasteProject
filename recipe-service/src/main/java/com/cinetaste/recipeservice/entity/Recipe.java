@@ -1,13 +1,12 @@
 // Vị trí: recipe-service/src/main/java/com/cinetaste/recipeservice/entity/Recipe.java
 package com.cinetaste.recipeservice.entity;
 
+// Đảm bảo các import này là chính xác
 import jakarta.persistence.*;
 import lombok.Data;
-import com.cinetaste.recipeservice.entity.Tag;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.annotations.Where;
-
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -59,7 +58,7 @@ public class Recipe {
     private List<RecipeIngredient> ingredients = new ArrayList<>();
 
     // --- Mối quan hệ với Tag ---
-    @ManyToMany
+    @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
             name = "recipe_tags",
             joinColumns = @JoinColumn(name = "recipe_id"),
