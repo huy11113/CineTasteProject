@@ -13,8 +13,9 @@ public class CreateRecipeRequest {
 
     private String summary;
 
-    @NotBlank(message = "Instructions are required")
-    private String instructions;
+    // Tạm thời chúng ta sẽ không dùng instructions ở đây vì nó sẽ được quản lý trong recipe_steps
+    // @NotBlank(message = "Instructions are required")
+    // private String instructions;
 
     private Short difficulty;
 
@@ -26,5 +27,5 @@ public class CreateRecipeRequest {
 
     private String mainImageUrl;
 
-    private String movieName;
+    private String movieName; // Tạm thời dùng movieName, sau này sẽ thay bằng movieId
 }

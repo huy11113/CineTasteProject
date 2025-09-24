@@ -3,7 +3,6 @@ package com.cinetaste.recipeservice.entity;
 import jakarta.persistence.*;
 import lombok.Data;
 import java.math.BigDecimal;
-import java.util.UUID;
 
 @Data
 @Entity
@@ -13,11 +12,13 @@ public class RecipeIngredient {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "recipe_id", nullable = false)
-    private UUID recipeId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "recipe_id", nullable = false)
+    private Recipe recipe;
 
-    @Column(name = "ingredient_id", nullable = false)
-    private Long ingredientId;
+    @ManyToOne
+    @JoinColumn(name = "ingredient_id", nullable = false)
+    private Ingredient ingredient;
 
     @Column(precision = 10, scale = 2)
     private BigDecimal quantity;

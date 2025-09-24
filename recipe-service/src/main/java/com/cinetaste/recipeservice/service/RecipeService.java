@@ -23,14 +23,12 @@ public class RecipeService {
         Recipe newRecipe = new Recipe();
         newRecipe.setTitle(request.getTitle());
         newRecipe.setSummary(request.getSummary());
-        // Đây là nơi bạn sẽ thêm logic để lưu instructions vào bảng recipe_steps sau này
-        // newRecipe.setInstructions(request.getInstructions());
         newRecipe.setDifficulty(request.getDifficulty());
         newRecipe.setPrepTimeMinutes(request.getPrepTimeMinutes());
         newRecipe.setCookTimeMinutes(request.getCookTimeMinutes());
         newRecipe.setServings(request.getServings());
         newRecipe.setMainImageUrl(request.getMainImageUrl());
-        // newRecipe.setMovieName(request.getMovieName());
+        // newRecipe.setMovieName(request.getMovieName()); // Dữ liệu này sẽ được quản lý qua bảng movie
 
         // Gán ID của tác giả
         newRecipe.setAuthorId(authorId);
