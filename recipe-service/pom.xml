@@ -65,7 +65,13 @@
             <version>0.12.5</version>
             <scope>runtime</scope>
         </dependency>
-    </dependencies>
+
+    <!-- WebClient để gọi API sang user-service -->
+    <dependency>
+        <groupId>org.springframework</groupId>
+        <artifactId>spring-webflux</artifactId>
+    </dependency>
+
 
     <build>
         <plugins>

@@ -1,7 +1,7 @@
 // Vị trí: recipe-service/src/main/java/com/cinetaste/recipeservice/config/JwtAuthenticationFilter.java
 package com.cinetaste.recipeservice.config;
 
-import com.cinetaste.recipeservice.config.JwtService; // Sửa import này nếu cần
+import com.cinetaste.recipeservice.config.JwtService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -9,6 +9,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -17,7 +18,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.ArrayList;
+import java.util.Collections;
 
 @Component
 @RequiredArgsConstructor
@@ -42,13 +43,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         final String username = jwtService.extractUsername(jwt);
 
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            // TẠO MỘT USERDETAILS GIẢ LẬP, KHÔNG CẦN TRUY VẤN DATABASE
-            UserDetails userDetails = User.withUsername(username)
-                    .password("") // Mật khẩu không quan trọng ở đây
-                    .authorities(new ArrayList<>())
-                    .build();
+            // Tạo một UserDetails đơn giản, không cần truy vấn DB
+            // **CẢI TIẾN:** Thêm một quyền hạn (authority) mặc định
+            UserDetails userDetails = new User(username, "", Collections.singleton(new SimpleGrantedAuthority("ROLE_USER")));
 
-            // Chỉ kiểm tra chữ ký và thời hạn của token
             if (jwtService.isTokenValid(jwt, userDetails)) {
                 UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                         userDetails,
@@ -58,7 +56,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 authToken.setDetails(
                         new WebAuthenticationDetailsSource().buildDetails(request)
                 );
-                // Đặt thông tin xác thực vào SecurityContext
                 SecurityContextHolder.getContext().setAuthentication(authToken);
             }
         }
