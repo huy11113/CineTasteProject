@@ -44,7 +44,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             // TẠO MỘT USERDETAILS GIẢ LẬP, KHÔNG CẦN TRUY VẤN DATABASE
-            // **CẢI TIẾN:** Thêm một quyền hạn (authority) mặc định là "ROLE_USER"
+
             UserDetails userDetails = new User(username, "", Collections.singleton(new SimpleGrantedAuthority("ROLE_USER")));
 
             if (jwtService.isTokenValid(jwt, userDetails)) {
