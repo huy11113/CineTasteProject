@@ -12,7 +12,8 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 @Data
 @Entity
 @Table(name = "recipes")
@@ -78,6 +79,7 @@ public class Recipe {
     private String visibility = "public";
     @Column(name = "main_image_url")
     private String mainImageUrl;
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "nutrition_info", columnDefinition = "jsonb")
     private String nutritionInfo;
     @Column(name = "avg_rating", nullable = false, precision = 3, scale = 2)
@@ -88,6 +90,7 @@ public class Recipe {
     private Integer commentsCount = 0;
     @Column(name = "favorites_count", nullable = false)
     private Integer favoritesCount = 0;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
