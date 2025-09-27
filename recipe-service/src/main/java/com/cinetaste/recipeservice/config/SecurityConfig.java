@@ -23,7 +23,9 @@ public class SecurityConfig {
         http
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
+                        // Cho phép xem công thức công khai mà không cần đăng nhập
                         .requestMatchers(HttpMethod.GET, "/api/recipes/**").permitAll()
+                        // Mọi request khác (POST, PUT, DELETE) đều cần xác thực
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

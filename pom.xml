@@ -5,15 +5,19 @@
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>3.3.4</version> <relativePath/> </parent>
+		<version>3.3.4</version>
+		<relativePath/>
+	</parent>
 	<groupId>com.cinetaste</groupId>
 	<artifactId>cinetaste-backend</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<packaging>pom</packaging> <name>cinetaste-backend</name>
+	<packaging>pom</packaging>
+	<name>cinetaste-backend</name>
 	<description>Project cha cho hệ thống microservices của CineTaste</description>
 
 	<properties>
 		<java.version>17</java.version>
+		<spring-cloud.version>2023.0.2</spring-cloud.version>
 	</properties>
 
 	<modules>
@@ -22,5 +26,24 @@
 		<module>recipe-service</module>
 		<module>ai-service</module>
 	</modules>
+
+	<dependencyManagement>
+		<dependencies>
+			<dependency>
+				<groupId>org.springframework.cloud</groupId>
+				<artifactId>spring-cloud-dependencies</artifactId>
+				<version>${spring-cloud.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+			<dependency>
+				<groupId>io.netty</groupId>
+				<artifactId>netty-bom</artifactId>
+				<version>4.1.113.Final</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
 
 </project>

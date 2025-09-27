@@ -1,7 +1,7 @@
 // Vị trí: recipe-service/src/main/java/com/cinetaste/recipeservice/config/JwtAuthenticationFilter.java
 package com.cinetaste.recipeservice.config;
 
-import com.cinetaste.recipeservice.config.JwtService;
+import com.cinetaste.recipeservice.config.JwtService; // Sửa import này nếu cần
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -43,10 +43,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         final String username = jwtService.extractUsername(jwt);
 
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            // Tạo một UserDetails đơn giản, không cần truy vấn DB
-            // **CẢI TIẾN:** Thêm một quyền hạn (authority) mặc định
+            // TẠO MỘT USERDETAILS GIẢ LẬP, KHÔNG CẦN TRUY VẤN DATABASE
             UserDetails userDetails = new User(username, "", Collections.singleton(new SimpleGrantedAuthority("ROLE_USER")));
 
+            // Chỉ kiểm tra chữ ký và thời hạn của token
             if (jwtService.isTokenValid(jwt, userDetails)) {
                 UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                         userDetails,
@@ -56,6 +56,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 authToken.setDetails(
                         new WebAuthenticationDetailsSource().buildDetails(request)
                 );
+                // Đặt thông tin xác thực vào SecurityContext
                 SecurityContextHolder.getContext().setAuthentication(authToken);
             }
         }
