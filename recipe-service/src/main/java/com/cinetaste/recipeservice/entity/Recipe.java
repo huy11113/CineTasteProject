@@ -17,7 +17,7 @@ import org.hibernate.type.SqlTypes;
 @Data
 @Entity
 @Table(name = "recipes")
-@Where(clause = "deleted_at IS NULL") // Dành cho soft-delete
+@Where(clause = "deleted_at IS NULL")
 public class Recipe {
 
     @Id

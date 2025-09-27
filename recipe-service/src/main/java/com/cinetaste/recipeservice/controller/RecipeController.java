@@ -1,6 +1,7 @@
 package com.cinetaste.recipeservice.controller;
 
 import com.cinetaste.recipeservice.dto.CreateRecipeRequest;
+import com.cinetaste.recipeservice.dto.RecipeResponse;
 import com.cinetaste.recipeservice.entity.Recipe;
 import com.cinetaste.recipeservice.service.RecipeService;
 import jakarta.validation.Valid;
@@ -11,6 +12,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -35,5 +37,20 @@ public class RecipeController {
         UUID authorId = UUID.fromString("573f81b9-4512-4666-84cf-0595ac12c87b"); 
         Recipe createdRecipe = recipeService.createRecipe(request, authorId);
         return ResponseEntity.status(HttpStatus.CREATED).body(createdRecipe);
+    }
+    // --- ENDPOINT MỚI ---
+    @GetMapping
+    public ResponseEntity<List<RecipeResponse>> getAllRecipes() {
+        return ResponseEntity.ok(recipeService.getAllRecipes());
+    }
+
+    // --- ENDPOINT MỚI ---
+    @GetMapping("/{recipeId}")
+    public ResponseEntity<RecipeResponse> getRecipeById(@PathVariable UUID recipeId) {
+        try {
+            return ResponseEntity.ok(recipeService.getRecipeById(recipeId));
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 }

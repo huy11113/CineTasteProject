@@ -1,15 +1,18 @@
 package com.cinetaste.recipeservice.service;
 
 import com.cinetaste.recipeservice.dto.CreateRecipeRequest;
+import com.cinetaste.recipeservice.dto.RecipeResponse;
 import com.cinetaste.recipeservice.entity.Recipe;
 import com.cinetaste.recipeservice.repository.RecipeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.text.Normalizer;
+import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -45,5 +48,38 @@ public class RecipeService {
         String normalized = Normalizer.normalize(nowhitespace, Normalizer.Form.NFD);
         String slug = NONLATIN.matcher(normalized).replaceAll("");
         return slug.toLowerCase(Locale.ENGLISH) + "-" + System.currentTimeMillis(); // Thêm timestamp để đảm bảo duy nhất
+    }
+    // --- HÀM MỚI ---
+    public List<RecipeResponse> getAllRecipes() {
+        return recipeRepository.findAll()
+                .stream()
+                .map(this::mapToRecipeResponse)
+                .collect(Collectors.toList());
+    }
+
+    // --- HÀM MỚI ---
+    public RecipeResponse getRecipeById(UUID recipeId) {
+        Recipe recipe = recipeRepository.findById(recipeId)
+                .orElseThrow(() -> new RuntimeException("Recipe not found with id: " + recipeId));
+        return mapToRecipeResponse(recipe);
+    }
+
+    // --- HÀM TIỆN ÍCH MỚI ---
+    // Chuyển đổi từ Entity sang DTO để trả về cho client
+    private RecipeResponse mapToRecipeResponse(Recipe recipe) {
+        return RecipeResponse.builder()
+                .id(recipe.getId())
+                .authorId(recipe.getAuthorId())
+                .title(recipe.getTitle())
+                .slug(recipe.getSlug())
+                .summary(recipe.getSummary())
+                .difficulty(recipe.getDifficulty())
+                .prepTimeMinutes(recipe.getPrepTimeMinutes())
+                .cookTimeMinutes(recipe.getCookTimeMinutes())
+                .servings(recipe.getServings())
+                .mainImageUrl(recipe.getMainImageUrl())
+                .avgRating(recipe.getAvgRating())
+                .createdAt(recipe.getCreatedAt())
+                .build();
     }
 }
