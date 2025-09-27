@@ -1,6 +1,7 @@
 package com.cinetaste.recipeservice.controller;
 
 import com.cinetaste.recipeservice.dto.CreateRecipeRequest;
+import com.cinetaste.recipeservice.dto.RateRecipeRequest;
 import com.cinetaste.recipeservice.dto.RecipeResponse;
 import com.cinetaste.recipeservice.entity.Recipe;
 import com.cinetaste.recipeservice.service.RecipeService;
@@ -52,5 +53,16 @@ public class RecipeController {
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
         }
+    }
+    // --- ENDPOINT MỚI ---
+    @PostMapping("/{recipeId}/ratings")
+    public ResponseEntity<Void> rateRecipe(
+            @PathVariable UUID recipeId,
+            @Valid @RequestBody RateRecipeRequest request,
+            @RequestHeader("X-User-ID") String userIdHeader) {
+
+        UUID userId = UUID.fromString(userIdHeader);
+        recipeService.rateRecipe(recipeId, request, userId);
+        return ResponseEntity.ok().build();
     }
 }

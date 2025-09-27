@@ -1,12 +1,16 @@
 package com.cinetaste.recipeservice.service;
 
 import com.cinetaste.recipeservice.dto.CreateRecipeRequest;
+import com.cinetaste.recipeservice.dto.RateRecipeRequest;
 import com.cinetaste.recipeservice.dto.RecipeResponse;
 import com.cinetaste.recipeservice.entity.Recipe;
+import com.cinetaste.recipeservice.entity.RecipeRating;
 import com.cinetaste.recipeservice.repository.RecipeRepository;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.text.Normalizer;
 import java.util.List;
 import java.util.Locale;
@@ -81,5 +85,40 @@ public class RecipeService {
                 .avgRating(recipe.getAvgRating())
                 .createdAt(recipe.getCreatedAt())
                 .build();
+    }
+    // --- HÀM MỚI ---
+    @Transactional
+    public void rateRecipe(UUID recipeId, RateRecipeRequest request, UUID userId) {
+        Recipe recipe = recipeRepository.findById(recipeId)
+                .orElseThrow(() -> new RuntimeException("Recipe not found"));
+
+        // TODO: Kiểm tra xem user đã vote cho recipe này chưa
+
+        RecipeRating newRating = new RecipeRating();
+        newRating.setRecipe(recipe);
+        newRating.setUserId(userId);
+        newRating.setRating(request.getRating());
+        ratingRepository.save(newRating);
+
+        // Cập nhật lại điểm trung bình cho công thức
+        updateRecipeAverageRating(recipe);
+    }
+
+    // --- HÀM TIỆN ÍCH MỚI ---
+    private void updateRecipeAverageRating(Recipe recipe) {
+        // Đây là cách tính đơn giản, có thể tối ưu sau này
+        List<RecipeRating> ratings = recipe.getRatings(); // Giả sử Recipe entity có List<RecipeRating>
+        if (ratings == null || ratings.isEmpty()) {
+            return;
+        }
+
+        double average = ratings.stream()
+                .mapToInt(RecipeRating::getRating)
+                .average()
+                .orElse(0.0);
+
+        recipe.setAvgRating(BigDecimal.valueOf(average));
+        recipe.setRatingsCount(ratings.size());
+        recipeRepository.save(recipe);
     }
 }

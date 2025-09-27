@@ -4,7 +4,7 @@ package com.cinetaste.recipeservice.config;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpMethod; // Thêm import này
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -23,9 +23,11 @@ public class SecurityConfig {
         http
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        // Cho phép xem công thức công khai mà không cần đăng nhập
+                        // **DÒNG QUAN TRỌNG:**
+                        // Cho phép TẤT CẢ request GET đến /api/recipes và các đường dẫn con của nó
                         .requestMatchers(HttpMethod.GET, "/api/recipes/**").permitAll()
-                        // Mọi request khác (POST, PUT, DELETE) đều cần xác thực
+
+                        // Tất cả các request còn lại (POST, PUT, DELETE...) đều cần phải được xác thực
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
