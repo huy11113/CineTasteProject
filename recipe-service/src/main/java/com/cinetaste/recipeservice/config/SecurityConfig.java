@@ -29,6 +29,10 @@ public class SecurityConfig {
 
                         // Tất cả các request còn lại (POST, PUT, DELETE...) đều cần phải được xác thực
                         .anyRequest().authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/recipes/rating/**").permitAll()
+
+                        // Tất cả các request còn lại (POST, PUT, DELETE...) đều cần phải được xác thực
+                        .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
