@@ -6,28 +6,28 @@ import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.Instant;
-import java.util.UUID;
 
 @Data
 @Entity
-@Table(name = "recipe_ratings", uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"user_id", "recipe_id"})
-})
+@Table(name = "recipe_ratings")
 public class RecipeRating {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    @Column(name = "user_id", nullable = false)
-    private UUID userId;
+    // Sử dụng @EmbeddedId thay vì @Id
+    @EmbeddedId
+    private RecipeRatingId id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "recipe_id", nullable = false)
+    @MapsId("recipeId") // Ánh xạ thuộc tính recipeId của lớp Id
+    @JoinColumn(name = "recipe_id")
     private Recipe recipe;
+
+    // Chúng ta không cần thuộc tính userId ở đây nữa vì nó đã nằm trong id.
 
     @Column(nullable = false)
     private Short rating;
+
+    @Column(columnDefinition = "TEXT")
+    private String review;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

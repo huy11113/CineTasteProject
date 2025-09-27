@@ -12,4 +12,5 @@ public class RateRecipeRequest {
     @Min(1)
     @Max(5)
     private Short rating;
+    private String review;
 }

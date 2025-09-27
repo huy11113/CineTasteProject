@@ -14,6 +14,8 @@ import java.util.List;
 import java.util.UUID;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
+import com.cinetaste.recipeservice.entity.RecipeRating;
+
 @Data
 @Entity
 @Table(name = "recipes")
@@ -66,6 +68,9 @@ public class Recipe {
             inverseJoinColumns = @JoinColumn(name = "tag_id")
     )
     private List<Tag> tags = new ArrayList<>();
+    // --Mối quan hệ rating --
+    @OneToMany(mappedBy = "recipe", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<RecipeRating> ratings = new ArrayList<>();
 
     private Short difficulty;
     @Column(name = "prep_time_minutes")

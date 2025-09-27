@@ -5,10 +5,13 @@ import com.cinetaste.recipeservice.dto.RateRecipeRequest;
 import com.cinetaste.recipeservice.dto.RecipeResponse;
 import com.cinetaste.recipeservice.entity.Recipe;
 import com.cinetaste.recipeservice.entity.RecipeRating;
+import com.cinetaste.recipeservice.entity.RecipeRatingId;
+import com.cinetaste.recipeservice.repository.RecipeRatingRepository;
 import com.cinetaste.recipeservice.repository.RecipeRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import com.cinetaste.recipeservice.entity.RecipeRating;
 
 import java.math.BigDecimal;
 import java.text.Normalizer;
@@ -20,9 +23,11 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+
 public class RecipeService {
 
     private final RecipeRepository recipeRepository;
+    private final RecipeRatingRepository ratingRepository;
     private static final Pattern NONLATIN = Pattern.compile("[^\\w-]");
     private static final Pattern WHITESPACE = Pattern.compile("[\\s]");
 
@@ -92,18 +97,22 @@ public class RecipeService {
         Recipe recipe = recipeRepository.findById(recipeId)
                 .orElseThrow(() -> new RuntimeException("Recipe not found"));
 
-        // TODO: Kiểm tra xem user đã vote cho recipe này chưa
+        // Tạo đối tượng khóa chính kết hợp
+        RecipeRatingId ratingId = new RecipeRatingId();
+        ratingId.setUserId(userId);
+        ratingId.setRecipeId(recipeId);
 
         RecipeRating newRating = new RecipeRating();
+        newRating.setId(ratingId); // Gán khóa chính kết hợp
         newRating.setRecipe(recipe);
-        newRating.setUserId(userId);
         newRating.setRating(request.getRating());
+        newRating.setReview(request.getReview()); // Giả sử DTO có thêm trường review
+
         ratingRepository.save(newRating);
 
         // Cập nhật lại điểm trung bình cho công thức
         updateRecipeAverageRating(recipe);
     }
-
     // --- HÀM TIỆN ÍCH MỚI ---
     private void updateRecipeAverageRating(Recipe recipe) {
         // Đây là cách tính đơn giản, có thể tối ưu sau này
