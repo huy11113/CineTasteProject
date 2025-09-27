@@ -1,0 +1,21 @@
+# Cấu hình cho API Gateway
+server:
+  port: 8080 # Đây sẽ là cổng chính duy nhất mà frontend gọi vào
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      routes:
+        # Quy tắc định tuyến cho User Service
+        - id: user-service
+          uri: http://localhost:8081 # Địa chỉ của user-service
+          predicates:
+            - Path=/api/auth/**, /api/users/** # Nếu request có đường dẫn này...
+
+        # Quy tắc định tuyến cho Recipe Service
+        - id: recipe-service
+          uri: http://localhost:8082 # Địa chỉ của recipe-service
+          predicates:
+            - Path=/api/recipes/** # ...hoặc đường dẫn này
