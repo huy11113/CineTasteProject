@@ -31,7 +31,7 @@ public class RecipeController {
         // Lấy username của người dùng đã được xác thực từ token
         String username = userDetails.getUsername();
 
-        // LƯU Ý: Đây là bước chúng ta cần cải tiến sau.
+
         // Hiện tại, recipe-service không biết UUID của user.
         // Cách làm tạm thời: chúng ta cần gọi sang user-service để lấy UUID từ username.
         // Hoặc đơn giản hơn bây giờ, chúng ta sẽ hard-code một UUID để test.
