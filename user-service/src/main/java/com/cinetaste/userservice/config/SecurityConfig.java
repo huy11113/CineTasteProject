@@ -58,9 +58,10 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwtAuthFilter) throws Exception {
-        // Chúng ta sẽ "tiêm" jwtAuthFilter trực tiếp vào đây
         http
-                .csrf(csrf -> csrf.disable())
+                // --- THAY ĐỔI CÚ PHÁP Ở ĐÂY ---
+                .csrf(csrf -> csrf.disable()) // Sử dụng cú pháp này để tắt CSRF
+
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
                         .anyRequest().authenticated()

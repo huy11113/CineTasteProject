@@ -14,16 +14,12 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                // Tắt CSRF (Cross-Site Request Forgery) vì chúng ta dùng API stateless
-                .csrf(csrf -> csrf.disable())
+                // --- THAY ĐỔI CÚ PHÁP Ở ĐÂY ---
+                .csrf(csrf -> csrf.disable()) // Sử dụng cú pháp này để tắt CSRF
 
-                // Cấu hình quy tắc cho các request HTTP
                 .authorizeHttpRequests(auth -> auth
-                        // Cho phép TẤT CẢ các request đi vào service này mà không cần kiểm tra quyền
                         .anyRequest().permitAll()
                 )
-
-                // Cấu hình quản lý session: không tạo session vì chúng ta dùng token
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 
         return http.build();
