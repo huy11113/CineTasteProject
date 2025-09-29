@@ -1,15 +1,26 @@
-// Vị trí: api-gateway/src/main/java/com/cinetaste/apigateway/config/AuthenticationFilter.java
 package com.cinetaste.apigateway.config;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
+import org.springframework.web.server.ServerWebExchange;
+import reactor.core.publisher.Mono;
+
+import java.util.List;
 
 @Component
 public class AuthenticationFilter extends AbstractGatewayFilterFactory<AuthenticationFilter.Config> {
 
-    // Inject các class cần thiết, ví dụ JwtUtil
+    @Autowired
+    private JwtUtil jwtUtil;
+
+    private final List<String> publicApiEndpoints = List.of(
+            "/api/auth/register",
+            "/api/auth/login"
+    );
 
     public AuthenticationFilter() {
         super(Config.class);
@@ -18,18 +29,58 @@ public class AuthenticationFilter extends AbstractGatewayFilterFactory<Authentic
     @Override
     public GatewayFilter apply(Config config) {
         return (exchange, chain) -> {
-            // Logic xác thực JWT ở đây
-            // Nếu hợp lệ:
-            //      exchange.getRequest().mutate().header("X-User-ID", userId).build();
-            //      return chain.filter(exchange);
-            // Nếu không hợp lệ, trả về lỗi 401
+            String path = exchange.getRequest().getURI().getPath();
 
-            // Tạm thời cho qua tất cả để test
-            return chain.filter(exchange);
+            if (isPublicEndpoint(path)) {
+                return chain.filter(exchange);
+            }
+
+            HttpHeaders headers = exchange.getRequest().getHeaders();
+            if (!headers.containsKey(HttpHeaders.AUTHORIZATION)) {
+                return onError(exchange, HttpStatus.UNAUTHORIZED);
+            }
+
+            String authHeader = headers.getFirst(HttpHeaders.AUTHORIZATION);
+
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                return onError(exchange, HttpStatus.UNAUTHORIZED);
+            }
+
+            String token = authHeader.substring(7);
+
+            try {
+                if (jwtUtil.isTokenExpired(token)) {
+                    return onError(exchange, HttpStatus.UNAUTHORIZED);
+                }
+
+                // --- THAY ĐỔI TỪ ĐÂY ---
+                // Lấy userId từ custom claim của token
+                String userId = jwtUtil.extractClaim(token, claims -> claims.get("userId", String.class));
+
+                // Thêm header "X-User-ID" vào request
+                ServerWebExchange modifiedExchange = exchange.mutate()
+                        .request(builder -> builder.header("X-User-ID", userId))
+                        .build();
+                // --- KẾT THÚC THAY ĐỔI ---
+
+                return chain.filter(modifiedExchange);
+
+            } catch (Exception e) {
+                return onError(exchange, HttpStatus.UNAUTHORIZED);
+            }
         };
     }
 
+    private boolean isPublicEndpoint(String path) {
+        return publicApiEndpoints.stream().anyMatch(path::startsWith);
+    }
+
+    private Mono<Void> onError(ServerWebExchange exchange, HttpStatus status) {
+        exchange.getResponse().setStatusCode(status);
+        return exchange.getResponse().setComplete();
+    }
+
     public static class Config {
-        // Có thể thêm các cấu hình cho filter ở đây
+        // Configuration properties
     }
 }

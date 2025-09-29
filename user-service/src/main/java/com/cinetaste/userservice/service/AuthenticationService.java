@@ -1,4 +1,3 @@
-// Vị trí: user-service/src/main/java/com/cinetaste/userservice/service/AuthenticationService.java
 package com.cinetaste.userservice.service;
 
 import com.cinetaste.userservice.dto.LoginRequest;
@@ -8,10 +7,7 @@ import com.cinetaste.userservice.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
-
-import java.util.ArrayList;
 
 @Service
 @RequiredArgsConstructor
@@ -22,7 +18,7 @@ public class AuthenticationService {
     private final AuthenticationManager authenticationManager;
 
     public LoginResponse login(LoginRequest request) {
-        // 1. Xác thực người dùng (username/email và password)
+        // 1. Xác thực người dùng
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         request.getLoginIdentifier(),
@@ -34,17 +30,10 @@ public class AuthenticationService {
         User user = userRepository.findByUsernameOrEmail(request.getLoginIdentifier(), request.getLoginIdentifier())
                 .orElseThrow(() -> new IllegalArgumentException("Invalid username or email after authentication"));
 
-        // 3. Tạo UserDetails để sinh token
-        UserDetails userDetails = org.springframework.security.core.userdetails.User
-                .withUsername(user.getUsername())
-                .password(user.getPasswordHash())
-                .authorities(new ArrayList<>())
-                .build();
+        // 3. Sinh JWT Token từ đối tượng User (thay vì UserDetails)
+        String token = jwtService.generateToken(user); // <-- THAY ĐỔI Ở ĐÂY
 
-        // 4. Sinh JWT Token
-        String token = jwtService.generateToken(userDetails);
-
-        // 5. Trả về token và thông tin người dùng
+        // 4. Trả về token và thông tin người dùng
         return LoginResponse.builder()
                 .token(token)
                 .username(user.getUsername())
