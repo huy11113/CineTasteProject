@@ -61,7 +61,7 @@ public class RecipeController {
         recipeService.rateRecipe(recipeId, request, userId);
         return ResponseEntity.ok().build();
     }
-    // --- ENDPOINT MỚI: Thêm một bình luận ---
+    // --- ENDPOINT MỚI: Thêm một bình luận --
     @PostMapping("/{recipeId}/comments")
     public ResponseEntity<CommentResponse> addComment(
             @PathVariable UUID recipeId,
