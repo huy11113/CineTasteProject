@@ -73,7 +73,7 @@ public class RecipeController {
         return ResponseEntity.status(HttpStatus.CREATED).body(newComment);
     }
 
-    // --- ENDPOINT MỚI: Lấy tất cả bình luận của một công thức ---
+    // --- ENDPOINT MỚI: Lấy tất cả bình luận của một công thức --
     @GetMapping("/{recipeId}/comments")
     public ResponseEntity<List<CommentResponse>> getComments(@PathVariable UUID recipeId) {
         try {
