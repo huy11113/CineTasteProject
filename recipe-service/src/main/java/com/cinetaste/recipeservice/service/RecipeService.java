@@ -98,7 +98,7 @@ public class RecipeService {
                 .createdAt(recipe.getCreatedAt())
                 .build();
     }
-    // --- HÀM MỚI ---
+
     @Transactional
     public void rateRecipe(UUID recipeId, RateRecipeRequest request, UUID userId) {
         Recipe recipe = recipeRepository.findById(recipeId)
@@ -137,7 +137,7 @@ public class RecipeService {
         recipe.setRatingsCount(ratings.size());
         recipeRepository.save(recipe);
     }
-    // --- HÀM MỚI: Thêm bình luận ---
+    // --- Thêm bình luận ---
     public CommentResponse addComment(UUID recipeId, UUID authorId, CreateCommentRequest request) {
         Recipe recipe = recipeRepository.findById(recipeId)
                 .orElseThrow(() -> new RuntimeException("Recipe not found with id: " + recipeId));
