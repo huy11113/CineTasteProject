@@ -60,7 +60,7 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwtAuthFilter) throws Exception {
         http
                 // --- THAY ĐỔI CÚ PHÁP Ở ĐÂY ---
-                .csrf(csrf -> csrf.disable()) // Sử dụng cú pháp này để tắt CSRF
+                .csrf(csrf -> csrf.disable())
 
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
