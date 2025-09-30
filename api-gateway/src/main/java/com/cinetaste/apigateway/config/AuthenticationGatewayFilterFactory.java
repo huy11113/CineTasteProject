@@ -12,7 +12,8 @@ import reactor.core.publisher.Mono;
 import java.util.List;
 
 @Component
-public class AuthenticationFilter extends AbstractGatewayFilterFactory<AuthenticationFilter.Config> {
+// --- THAY ĐỔI TÊN LỚP Ở ĐÂY ---
+public class AuthenticationGatewayFilterFactory extends AbstractGatewayFilterFactory<AuthenticationGatewayFilterFactory.Config> {
 
     @Autowired
     private JwtUtil jwtUtil;
@@ -22,10 +23,10 @@ public class AuthenticationFilter extends AbstractGatewayFilterFactory<Authentic
             "/api/auth/login"
     );
 
-    public AuthenticationFilter() {
+    public AuthenticationGatewayFilterFactory() {
         super(Config.class);
     }
-//gateway kiểm tra
+
     @Override
     public GatewayFilter apply(Config config) {
         return (exchange, chain) -> {
@@ -53,15 +54,11 @@ public class AuthenticationFilter extends AbstractGatewayFilterFactory<Authentic
                     return onError(exchange, HttpStatus.UNAUTHORIZED);
                 }
 
-                // --- THAY ĐỔI TỪ ĐÂY ---
-                // Lấy userId từ custom claim của token
                 String userId = jwtUtil.extractClaim(token, claims -> claims.get("userId", String.class));
 
-                // Thêm header "X-User-ID" vào request
                 ServerWebExchange modifiedExchange = exchange.mutate()
                         .request(builder -> builder.header("X-User-ID", userId))
                         .build();
-                // --- KẾT THÚC THAY ĐỔI ---
 
                 return chain.filter(modifiedExchange);
 
@@ -80,6 +77,7 @@ public class AuthenticationFilter extends AbstractGatewayFilterFactory<Authentic
         return exchange.getResponse().setComplete();
     }
 
+    // --- THAY ĐỔI TÊN LỚP CONFIG Ở ĐÂY ---
     public static class Config {
         // Configuration properties
     }
