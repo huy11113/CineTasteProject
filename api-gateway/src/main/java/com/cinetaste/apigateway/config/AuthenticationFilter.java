@@ -25,7 +25,7 @@ public class AuthenticationFilter extends AbstractGatewayFilterFactory<Authentic
     public AuthenticationFilter() {
         super(Config.class);
     }
-
+//gateway kiểm tra
     @Override
     public GatewayFilter apply(Config config) {
         return (exchange, chain) -> {
