@@ -1,17 +1,23 @@
 package com.cinetaste.recipeservice.service;
 
+import com.cinetaste.recipeservice.dto.CommentResponse;
 import com.cinetaste.recipeservice.dto.CreateRecipeRequest;
 import com.cinetaste.recipeservice.dto.RateRecipeRequest;
 import com.cinetaste.recipeservice.dto.RecipeResponse;
 import com.cinetaste.recipeservice.entity.Recipe;
 import com.cinetaste.recipeservice.entity.RecipeRating;
 import com.cinetaste.recipeservice.entity.RecipeRatingId;
+import com.cinetaste.recipeservice.repository.CommentRepository;
 import com.cinetaste.recipeservice.repository.RecipeRatingRepository;
 import com.cinetaste.recipeservice.repository.RecipeRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import com.cinetaste.recipeservice.entity.RecipeRating;
+import com.cinetaste.recipeservice.dto.CommentResponse;
+import com.cinetaste.recipeservice.dto.CreateCommentRequest;
+import com.cinetaste.recipeservice.entity.Comment;
+import com.cinetaste.recipeservice.repository.CommentRepository;
 
 import java.math.BigDecimal;
 import java.text.Normalizer;
@@ -28,6 +34,7 @@ public class RecipeService {
 
     private final RecipeRepository recipeRepository;
     private final RecipeRatingRepository ratingRepository;
+    private final CommentRepository commentRepository;
     private static final Pattern NONLATIN = Pattern.compile("[^\\w-]");
     private static final Pattern WHITESPACE = Pattern.compile("[\\s]");
 
@@ -129,5 +136,48 @@ public class RecipeService {
         recipe.setAvgRating(BigDecimal.valueOf(average));
         recipe.setRatingsCount(ratings.size());
         recipeRepository.save(recipe);
+    }
+    // --- HÀM MỚI: Thêm bình luận ---
+    public CommentResponse addComment(UUID recipeId, UUID authorId, CreateCommentRequest request) {
+        Recipe recipe = recipeRepository.findById(recipeId)
+                .orElseThrow(() -> new RuntimeException("Recipe not found with id: " + recipeId));
+
+        Comment newComment = new Comment();
+        newComment.setRecipe(recipe);
+        newComment.setAuthorId(authorId);
+        newComment.setContent(request.getContent());
+
+        // Xử lý bình luận trả lời
+        if (request.getParentId() != null) {
+            Comment parentComment = commentRepository.findById(request.getParentId())
+                    .orElseThrow(() -> new RuntimeException("Parent comment not found"));
+            newComment.setParent(parentComment);
+        }
+
+        Comment savedComment = commentRepository.save(newComment);
+        return mapToCommentResponse(savedComment);
+    }
+
+    // --- HÀM MỚI: Lấy danh sách bình luận ---
+    public List<CommentResponse> getComments(UUID recipeId) {
+        // Kiểm tra xem công thức có tồn tại không
+        if (!recipeRepository.existsById(recipeId)) {
+            throw new RuntimeException("Recipe not found with id: " + recipeId);
+        }
+        return commentRepository.findByRecipeIdOrderByCreatedAtDesc(recipeId)
+                .stream()
+                .map(this::mapToCommentResponse)
+                .collect(Collectors.toList());
+    }
+
+    // --- HÀM TIỆN ÍCH MỚI: Chuyển đổi Comment Entity sang DTO ---
+    private CommentResponse mapToCommentResponse(Comment comment) {
+        return CommentResponse.builder()
+                .id(comment.getId())
+                .authorId(comment.getAuthorId())
+                .parentId(comment.getParent() != null ? comment.getParent().getId() : null)
+                .content(comment.getContent())
+                .createdAt(comment.getCreatedAt())
+                .build();
     }
 }

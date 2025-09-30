@@ -9,6 +9,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import com.cinetaste.recipeservice.dto.CommentResponse;
+import com.cinetaste.recipeservice.dto.CreateCommentRequest;
 // Bỏ import của Spring Security vì không cần nữa
 // import org.springframework.security.core.annotation.AuthenticationPrincipal;
 // import org.springframework.security.core.userdetails.UserDetails;
@@ -58,5 +60,26 @@ public class RecipeController {
         UUID userId = UUID.fromString(userIdHeader);
         recipeService.rateRecipe(recipeId, request, userId);
         return ResponseEntity.ok().build();
+    }
+    // --- ENDPOINT MỚI: Thêm một bình luận ---
+    @PostMapping("/{recipeId}/comments")
+    public ResponseEntity<CommentResponse> addComment(
+            @PathVariable UUID recipeId,
+            @RequestHeader("X-User-ID") String userIdHeader,
+            @Valid @RequestBody CreateCommentRequest request
+    ) {
+        UUID authorId = UUID.fromString(userIdHeader);
+        CommentResponse newComment = recipeService.addComment(recipeId, authorId, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(newComment);
+    }
+
+    // --- ENDPOINT MỚI: Lấy tất cả bình luận của một công thức ---
+    @GetMapping("/{recipeId}/comments")
+    public ResponseEntity<List<CommentResponse>> getComments(@PathVariable UUID recipeId) {
+        try {
+            return ResponseEntity.ok(recipeService.getComments(recipeId));
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 }
