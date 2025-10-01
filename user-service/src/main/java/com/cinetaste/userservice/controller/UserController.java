@@ -55,5 +55,5 @@ public class UserController {
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
         }
-    }d
+    }
 }

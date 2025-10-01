@@ -59,11 +59,14 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwtAuthFilter) throws Exception {
         http
-                // --- THAY ĐỔI CÚ PHÁP Ở ĐÂY ---
                 .csrf(csrf -> csrf.disable())
-
                 .authorizeHttpRequests(auth -> auth
+                        // Cho phép các API đăng ký, đăng nhập
                         .requestMatchers("/api/auth/**").permitAll()
+                        // --- QUY TẮC MỚI ---
+                        // Cho phép request GET đến hồ sơ người dùng mà không cần đăng nhập
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/users/{username}").permitAll()
+                        // Tất cả các request còn lại đều phải được xác thực
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

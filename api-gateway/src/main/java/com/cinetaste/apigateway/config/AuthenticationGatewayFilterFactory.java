@@ -4,24 +4,22 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod; // Thêm import này
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
+import java.util.function.Predicate; // Thêm import này
+import org.springframework.http.server.reactive.ServerHttpRequest; // Thêm import này
+
 
 @Component
-// --- THAY ĐỔI TÊN LỚP Ở ĐÂY ---
 public class AuthenticationGatewayFilterFactory extends AbstractGatewayFilterFactory<AuthenticationGatewayFilterFactory.Config> {
 
     @Autowired
     private JwtUtil jwtUtil;
-
-    private final List<String> publicApiEndpoints = List.of(
-            "/api/auth/register",
-            "/api/auth/login"
-    );
 
     public AuthenticationGatewayFilterFactory() {
         super(Config.class);
@@ -30,13 +28,27 @@ public class AuthenticationGatewayFilterFactory extends AbstractGatewayFilterFac
     @Override
     public GatewayFilter apply(Config config) {
         return (exchange, chain) -> {
-            String path = exchange.getRequest().getURI().getPath();
+            ServerHttpRequest request = exchange.getRequest();
 
-            if (isPublicEndpoint(path)) {
-                return chain.filter(exchange);
+            // --- QUY TẮC MỚI ĐƯỢC CẬP NHẬT ---
+            // Danh sách các endpoints công khai
+            List<Predicate<ServerHttpRequest>> publicEndpoints = List.of(
+                    r -> r.getURI().getPath().startsWith("/api/auth/"),
+                    r -> r.getMethod().equals(HttpMethod.GET) && r.getURI().getPath().matches("/api/users/[^/]+$"),
+                    r -> r.getMethod().equals(HttpMethod.GET) && r.getURI().getPath().startsWith("/api/recipes") // Cho phép xem công thức và bình luận
+            );
+
+            // Kiểm tra xem request có khớp với bất kỳ endpoint công khai nào không
+            boolean isPublic = publicEndpoints.stream().anyMatch(p -> p.test(request));
+
+            if (isPublic) {
+                return chain.filter(exchange); // Nếu là public, cho qua luôn
             }
+            // --- KẾT THÚC CẬP NHẬT ---
 
-            HttpHeaders headers = exchange.getRequest().getHeaders();
+
+            // Nếu không phải public, thực hiện kiểm tra token như cũ
+            HttpHeaders headers = request.getHeaders();
             if (!headers.containsKey(HttpHeaders.AUTHORIZATION)) {
                 return onError(exchange, HttpStatus.UNAUTHORIZED);
             }
@@ -68,16 +80,11 @@ public class AuthenticationGatewayFilterFactory extends AbstractGatewayFilterFac
         };
     }
 
-    private boolean isPublicEndpoint(String path) {
-        return publicApiEndpoints.stream().anyMatch(path::startsWith);
-    }
-
     private Mono<Void> onError(ServerWebExchange exchange, HttpStatus status) {
         exchange.getResponse().setStatusCode(status);
         return exchange.getResponse().setComplete();
     }
 
-    // --- THAY ĐỔI TÊN LỚP CONFIG Ở ĐÂY ---
     public static class Config {
         // Configuration properties
     }
