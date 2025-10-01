@@ -5,8 +5,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import com.cinetaste.userservice.service.FollowService;
-import com.cinetaste.userservice.dto.UserProfileResponse; // Thêm import
-
+import com.cinetaste.userservice.dto.UserProfileResponse;
+import com.cinetaste.userservice.dto.UpdateProfileRequest;
+import com.cinetaste.userservice.entity.User;
 import com.cinetaste.userservice.service.UserService;
 import lombok.RequiredArgsConstructor;
 import java.util.UUID;
@@ -55,5 +56,15 @@ public class UserController {
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
         }
+    }
+    // --- ENDPOINT MỚI: Cập nhật hồ sơ của người dùng hiện tại ---
+    @PutMapping("/me")
+    public ResponseEntity<User> updateCurrentUserProfile(
+            @RequestHeader("X-User-ID") String currentUserIdHeader,
+            @RequestBody UpdateProfileRequest request) {
+
+        UUID currentUserId = UUID.fromString(currentUserIdHeader);
+        User updatedUser = userService.updateUserProfile(currentUserId, request);
+        return ResponseEntity.ok(updatedUser);
     }
 }

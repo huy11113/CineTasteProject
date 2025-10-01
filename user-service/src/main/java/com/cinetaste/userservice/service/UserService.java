@@ -7,7 +7,10 @@ import com.cinetaste.userservice.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import com.cinetaste.userservice.dto.UserProfileResponse; // Thêm import
+import com.cinetaste.userservice.dto.UserProfileResponse;
+import com.cinetaste.userservice.dto.UpdateProfileRequest;
+import java.util.Optional;
+
 import java.util.UUID;
 import com.cinetaste.userservice.repository.FollowRepository;
 @Service
@@ -52,6 +55,18 @@ public class UserService {
                 .followerCount(followerCount)
                 .followingCount(followingCount)
                 .build();
+    }
+    // --- PHƯƠNG THỨC MỚI: Cập nhật thông tin hồ sơ ---
+    public User updateUserProfile(UUID currentUserId, UpdateProfileRequest request) {
+        User currentUser = userRepository.findById(currentUserId)
+                .orElseThrow(() -> new RuntimeException("User not found."));
+
+        // Chỉ cập nhật các trường được cung cấp trong request
+        Optional.ofNullable(request.getDisplayName()).ifPresent(currentUser::setDisplayName);
+        Optional.ofNullable(request.getBio()).ifPresent(currentUser::setBio);
+        Optional.ofNullable(request.getProfileImageUrl()).ifPresent(currentUser::setProfileImageUrl);
+
+        return userRepository.save(currentUser);
     }
 
 }
