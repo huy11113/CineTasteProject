@@ -14,8 +14,9 @@ import com.cinetaste.recipeservice.dto.CreateCommentRequest;
 // Bỏ import của Spring Security vì không cần nữa
 // import org.springframework.security.core.annotation.AuthenticationPrincipal;
 // import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.*;
-
+import com.cinetaste.recipeservice.dto.UpdateRecipeRequest;
 import java.util.List;
 import java.util.UUID;
 
@@ -78,6 +79,40 @@ public class RecipeController {
     public ResponseEntity<List<CommentResponse>> getComments(@PathVariable UUID recipeId) {
         try {
             return ResponseEntity.ok(recipeService.getComments(recipeId));
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+    // --- ENDPOINT MỚI: Cập nhật một công thức ---
+    @PutMapping("/{recipeId}")
+    public ResponseEntity<RecipeResponse> updateRecipe(
+            @PathVariable UUID recipeId,
+            @RequestHeader("X-User-ID") String userIdHeader,
+            @Valid @RequestBody UpdateRecipeRequest request) {
+
+        UUID currentUserId = UUID.fromString(userIdHeader);
+        try {
+            RecipeResponse updatedRecipe = recipeService.updateRecipe(recipeId, currentUserId, request);
+            return ResponseEntity.ok(updatedRecipe);
+        } catch (AccessDeniedException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    // --- ENDPOINT MỚI: Xóa một công thức ---
+    @DeleteMapping("/{recipeId}")
+    public ResponseEntity<Void> deleteRecipe(
+            @PathVariable UUID recipeId,
+            @RequestHeader("X-User-ID") String userIdHeader) {
+
+        UUID currentUserId = UUID.fromString(userIdHeader);
+        try {
+            recipeService.deleteRecipe(recipeId, currentUserId);
+            return ResponseEntity.noContent().build(); // Trả về 204 No Content là chuẩn cho việc xóa thành công
+        } catch (AccessDeniedException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
         }

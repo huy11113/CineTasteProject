@@ -19,6 +19,9 @@ import com.cinetaste.recipeservice.dto.CreateCommentRequest;
 import com.cinetaste.recipeservice.entity.Comment;
 import com.cinetaste.recipeservice.repository.CommentRepository;
 
+import com.cinetaste.recipeservice.dto.UpdateRecipeRequest;
+import java.util.Optional;
+import org.springframework.security.access.AccessDeniedException;
 import java.math.BigDecimal;
 import java.text.Normalizer;
 import java.util.List;
@@ -179,5 +182,42 @@ public class RecipeService {
                 .content(comment.getContent())
                 .createdAt(comment.getCreatedAt())
                 .build();
+    }
+    // --- PHƯƠNG THỨC MỚI: Cập nhật công thức ---
+    @Transactional
+    public RecipeResponse updateRecipe(UUID recipeId, UUID currentUserId, UpdateRecipeRequest request) {
+        Recipe recipe = recipeRepository.findById(recipeId)
+                .orElseThrow(() -> new RuntimeException("Recipe not found with id: " + recipeId));
+
+        // *** KIỂM TRA QUYỀN SỞ HỮU ***
+        if (!recipe.getAuthorId().equals(currentUserId)) {
+            throw new AccessDeniedException("You do not have permission to edit this recipe.");
+        }
+
+        // Chỉ cập nhật các trường được cung cấp
+        Optional.ofNullable(request.getTitle()).ifPresent(recipe::setTitle);
+        Optional.ofNullable(request.getSummary()).ifPresent(recipe::setSummary);
+        Optional.ofNullable(request.getDifficulty()).ifPresent(recipe::setDifficulty);
+        Optional.ofNullable(request.getPrepTimeMinutes()).ifPresent(recipe::setPrepTimeMinutes);
+        Optional.ofNullable(request.getCookTimeMinutes()).ifPresent(recipe::setCookTimeMinutes);
+        Optional.ofNullable(request.getServings()).ifPresent(recipe::setServings);
+        Optional.ofNullable(request.getMainImageUrl()).ifPresent(recipe::setMainImageUrl);
+
+        Recipe updatedRecipe = recipeRepository.save(recipe);
+        return mapToRecipeResponse(updatedRecipe);
+    }
+
+    // --- PHƯƠNG THỨC MỚI: Xóa công thức ---
+    @Transactional
+    public void deleteRecipe(UUID recipeId, UUID currentUserId) {
+        Recipe recipe = recipeRepository.findById(recipeId)
+                .orElseThrow(() -> new RuntimeException("Recipe not found with id: " + recipeId));
+
+        // *** KIỂM TRA QUYỀN SỞ HỮU ***
+        if (!recipe.getAuthorId().equals(currentUserId)) {
+            throw new AccessDeniedException("You do not have permission to delete this recipe.");
+        }
+
+        recipeRepository.delete(recipe);
     }
 }
