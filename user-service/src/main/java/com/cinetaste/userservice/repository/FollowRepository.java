@@ -5,8 +5,14 @@ import com.cinetaste.userservice.entity.FollowId;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.UUID; // Thêm import này
+
 @Repository
 public interface FollowRepository extends JpaRepository<Follow, FollowId> {
-    // Chúng ta có thể thêm các phương thức truy vấn tùy chỉnh ở đây sau này
-    // Ví dụ: countByFollowerId(UUID userId) để đếm số người mình đang theo dõi
+
+    // --- PHƯƠNG THỨC MỚI: Đếm xem user có bao nhiêu người theo dõi (follower) ---
+    long countByFollowingId(UUID userId);
+
+    // --- PHƯƠNG THỨC MỚI: Đếm xem user đang theo dõi bao nhiêu người (following) ---
+    long countByFollowerId(UUID userId);
 }
