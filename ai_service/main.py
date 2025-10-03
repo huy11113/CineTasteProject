@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-# Khởi tạo ứng dụng
+
 app = FastAPI()
 
 
