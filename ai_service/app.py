@@ -1,69 +1,101 @@
-# ai_service.py
-from fastapi import FastAPI, UploadFile, Form
+from fastapi import FastAPI, UploadFile, File, HTTPException
+from pydantic import BaseModel
 import google.generativeai as genai
 import os
+from dotenv import load_dotenv
+from PIL import Image
+import io
 
-# Lấy API key từ biến môi trường
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+# Tải các biến môi trường từ file .env (chứa API key)
+load_dotenv()
+
+# Cấu hình Google AI SDK
+GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
+if not GOOGLE_API_KEY:
+    raise ValueError("Vui lòng thiết lập GOOGLE_API_KEY trong file .env")
+
 genai.configure(api_key=GOOGLE_API_KEY)
 
-# Khởi tạo FastAPI
-app = FastAPI(title="CineTaste AI Service")
+# Khởi tạo ứng dụng FastAPI
+app = FastAPI(
+    title="CineTaste AI Service",
+    description="Bộ não AI chuyên biệt cho việc nhận diện món ăn và xử lý công thức.",
+    version="1.0.0"
+)
 
-# Chọn model Gemini 2.5 (Flash hoặc Pro)
-MODEL_ID = "gemini-2.5-flash"   # hoặc "gemini-2.5-pro"
+# --- Các Pydantic Model để định nghĩa cấu trúc dữ liệu cho request/response ---
 
-# 1️⃣ Nhận diện món ăn từ ảnh
-@app.post("/api/ai/identify-dish")
-async def identify_dish(file: UploadFile):
+class ModifyRecipeRequest(BaseModel):
+    original_recipe: str
+    modification_request: str # Ví dụ: "biến thành món chay", "giảm 50% calo"
+
+class ModifyRecipeResponse(BaseModel):
+    modified_recipe: str
+
+class IdentifyDishResponse(BaseModel):
+    dish_name: str
+
+# --- API Endpoints ---
+
+@app.post("/api/ai/identify-dish", response_model=IdentifyDishResponse, tags=["AI Vision"])
+async def identify_dish_from_image(image: UploadFile = File(...)):
+    """
+    Nhận một file ảnh, gọi đến Gemini Vision, và trả về tên món ăn.
+    """
     try:
-        # Đọc dữ liệu ảnh
-        img_bytes = await file.read()
+        # Đọc nội dung file ảnh
+        contents = await image.read()
+        pil_image = Image.open(io.BytesIO(contents))
 
-        # Gửi request đến Gemini Vision
-        model = genai.GenerativeModel(MODEL_ID)
-        response = model.generate_content(
-            ["Hãy cho biết món ăn trong ảnh này là gì?", img_bytes]
-        )
+        # Khởi tạo mô hình Gemini Pro Vision
+        model = genai.GenerativeModel('gemini-pro-vision')
 
-        return {"dish_name": response.text}
+        # Thiết kế prompt
+        prompt = "Hãy phân tích hình ảnh này và cho biết tên cụ thể của món ăn trong ảnh. Chỉ trả về tên món ăn, không thêm bất kỳ giải thích nào khác."
+
+        # Gửi yêu cầu đến API
+        response = model.generate_content([prompt, pil_image])
+
+        # Xử lý và trả về kết quả
+        dish_name = response.text.strip()
+
+        return IdentifyDishResponse(dish_name=dish_name)
+
     except Exception as e:
-        return {"error": str(e)}
+        raise HTTPException(status_code=500, detail=f"Lỗi xử lý AI: {str(e)}")
 
-# 2️⃣ Biến tấu công thức
-@app.post("/api/ai/modify-recipe")
-async def modify_recipe(original_recipe: str = Form(...), request: str = Form(...)):
+
+@app.post("/api/ai/modify-recipe", response_model=ModifyRecipeResponse, tags=["AI Text"])
+async def modify_recipe(request: ModifyRecipeRequest):
+    """
+    Nhận một công thức gốc và yêu cầu thay đổi, gọi đến Gemini Text, và trả về công thức đã biến tấu.
+    """
     try:
-        model = genai.GenerativeModel(MODEL_ID)
+        # Khởi tạo mô hình Gemini Pro
+        model = genai.GenerativeModel('gemini-pro')
+
+        # Thiết kế Prompt Template chi tiết
         prompt = f"""
-        Đây là công thức gốc:
-        {original_recipe}
+        Bạn là một trợ lý bếp AI thông minh. Dưới đây là một công thức nấu ăn gốc và một yêu cầu thay đổi.
+        Nhiệm vụ của bạn là viết lại công thức mới dựa trên yêu cầu đó. Giữ nguyên cấu trúc và định dạng của công thức gốc.
 
-        Yêu cầu của người dùng: {request}
+        **Công thức gốc:**
+        {request.original_recipe}
 
-        Hãy trả về công thức mới đầy đủ, bao gồm nguyên liệu và các bước nấu.
+        **Yêu cầu thay đổi:**
+        {request.modification_request}
+
+        **Công thức đã biến tấu:**
         """
+
+        # Gửi yêu cầu đến API
         response = model.generate_content(prompt)
 
-        return {"modified_recipe": response.text}
+        return ModifyRecipeResponse(modified_recipe=response.text)
+
     except Exception as e:
-        return {"error": str(e)}
+        raise HTTPException(status_code=500, detail=f"Lỗi xử lý AI: {str(e)}")
 
-# 3️⃣ Phân tích hương vị từ nguyên liệu
-@app.post("/api/ai/analyze-flavor")
-async def analyze_flavor(ingredients: str = Form(...)):
-    try:
-        model = genai.GenerativeModel(MODEL_ID)
-        prompt = f"""
-        Đây là danh sách nguyên liệu: {ingredients}
-
-        Hãy phân tích và cho biết hồ sơ hương vị (Flavor Profile): 
-        - Vị chính (ngọt, mặn, chua, cay, béo, umami)
-        - Phong cách ẩm thực có thể phù hợp
-        - Món ăn gợi ý đi kèm
-        """
-        response = model.generate_content(prompt)
-
-        return {"flavor_profile": response.text}
-    except Exception as e:
-        return {"error": str(e)}
+@app.get("/", tags=["Health Check"])
+def read_root():
+    return {"message": "AI Service is running!"}
