@@ -10,6 +10,9 @@ import com.cinetaste.userservice.dto.UpdateProfileRequest;
 import com.cinetaste.userservice.entity.User;
 import com.cinetaste.userservice.service.UserService;
 import lombok.RequiredArgsConstructor;
+import com.cinetaste.userservice.dto.FlavorProfileRequest; // Thêm import này
+import com.cinetaste.userservice.service.FlavorProfileService; // Thêm import này
+import java.util.Map;
 import java.util.UUID;
 @RestController
 @RequestMapping("/api/users")
@@ -17,6 +20,7 @@ import java.util.UUID;
 public class UserController {
     private final FollowService followService; // Inject FollowService
     private final UserService userService;
+    private final FlavorProfileService flavorProfileService;
     @GetMapping("/me")
     public ResponseEntity<?> getCurrentUser(Authentication authentication) {
         // Nếu request có JWT token hợp lệ, Spring Security sẽ tự động
@@ -66,5 +70,23 @@ public class UserController {
         UUID currentUserId = UUID.fromString(currentUserIdHeader);
         User updatedUser = userService.updateUserProfile(currentUserId, request);
         return ResponseEntity.ok(updatedUser);
+    }
+    // --- ENDPOINT MỚI CHO HỒ SƠ HƯƠNG VỊ ---
+
+    @GetMapping("/me/flavor-profile")
+    public ResponseEntity<Map<String, Object>> getMyFlavorProfile(@RequestHeader("X-User-ID") String userIdHeader) {
+        UUID userId = UUID.fromString(userIdHeader);
+        Map<String, Object> profile = flavorProfileService.getProfileByUserId(userId);
+        return ResponseEntity.ok(profile);
+    }
+
+    @PutMapping("/me/flavor-profile")
+    public ResponseEntity<Map<String, Object>> updateMyFlavorProfile(
+            @RequestHeader("X-User-ID") String userIdHeader,
+            @RequestBody FlavorProfileRequest request
+    ) {
+        UUID userId = UUID.fromString(userIdHeader);
+        Map<String, Object> updatedProfile = flavorProfileService.updateProfile(userId, request.getPreferences());
+        return ResponseEntity.ok(updatedProfile);
     }
 }

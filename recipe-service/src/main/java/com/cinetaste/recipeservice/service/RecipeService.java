@@ -4,24 +4,23 @@ import com.cinetaste.recipeservice.dto.CommentResponse;
 import com.cinetaste.recipeservice.dto.CreateRecipeRequest;
 import com.cinetaste.recipeservice.dto.RateRecipeRequest;
 import com.cinetaste.recipeservice.dto.RecipeResponse;
-import com.cinetaste.recipeservice.entity.Recipe;
-import com.cinetaste.recipeservice.entity.RecipeRating;
-import com.cinetaste.recipeservice.entity.RecipeRatingId;
-import com.cinetaste.recipeservice.repository.CommentRepository;
-import com.cinetaste.recipeservice.repository.RecipeRatingRepository;
-import com.cinetaste.recipeservice.repository.RecipeRepository;
+import com.cinetaste.recipeservice.dto.ai.AnalyzeDishResponse;
+import com.cinetaste.recipeservice.entity.*;
+import com.cinetaste.recipeservice.repository.*;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import com.cinetaste.recipeservice.entity.RecipeRating;
 import com.cinetaste.recipeservice.dto.CommentResponse;
 import com.cinetaste.recipeservice.dto.CreateCommentRequest;
-import com.cinetaste.recipeservice.entity.Comment;
 import com.cinetaste.recipeservice.repository.CommentRepository;
-
+import org.springframework.context.annotation.Lazy;
 import com.cinetaste.recipeservice.dto.UpdateRecipeRequest;
 import java.util.Optional;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.web.multipart.MultipartFile;
+import reactor.core.publisher.Mono;
+
 import java.math.BigDecimal;
 import java.text.Normalizer;
 import java.util.List;
@@ -38,6 +37,9 @@ public class RecipeService {
     private final RecipeRepository recipeRepository;
     private final RecipeRatingRepository ratingRepository;
     private final CommentRepository commentRepository;
+    private final AiRequestsLogRepository logRepository;
+    private final @Lazy AiClientService aiClientService;
+
     private static final Pattern NONLATIN = Pattern.compile("[^\\w-]");
     private static final Pattern WHITESPACE = Pattern.compile("[\\s]");
 
@@ -219,5 +221,36 @@ public class RecipeService {
         }
 
         recipeRepository.delete(recipe);
+    }
+    // === PHƯƠNG THỨC MỚI ĐỂ GỌI VÀ LOG AI ===
+    public Mono<AnalyzeDishResponse> analyzeDishAndLog(MultipartFile image, String context, UUID userId) {
+        long startTime = System.currentTimeMillis();
+
+        return aiClientService.analyzeDish(image, context)
+                .doOnSuccess(response -> {
+                    long duration = System.currentTimeMillis() - startTime;
+                    // Cắt bớt response để log không quá dài
+                    String responseSummary = response.getDescription().length() > 200 ?
+                            response.getDescription().substring(0, 200) : response.getDescription();
+
+                    logRequest(userId, "analyze-dish", "Image + context", responseSummary, duration, true, null);
+                })
+                .doOnError(error -> {
+                    long duration = System.currentTimeMillis() - startTime;
+                    logRequest(userId, "analyze-dish", "Image + context", null, duration, false, error.getMessage());
+                });
+    }
+
+    private void logRequest(UUID userId, String feature, String requestSummary, String responseSummary, long duration, boolean success, String errorMessage) {
+        AiRequestsLog log = AiRequestsLog.builder()
+                .userId(userId)
+                .feature(feature)
+                .requestPayloadSummary(requestSummary)
+                .responsePayloadSummary(responseSummary)
+                .durationMs((int) duration)
+                .success(success)
+                .errorMessage(errorMessage)
+                .build();
+        logRepository.save(log);
     }
 }
