@@ -4,21 +4,24 @@ server:
 spring:
   application:
     name: api-gateway
+  # (Các phần khác)
   cloud:
     gateway:
-      # --- THÊM KHỐI NÀY VÀO ---
-      default-filters:
-        - Authentication
       routes:
         - id: user-service
-          uri: http://localhost:8081 # Địa chỉ của user-service
+          uri: lb://user-service
           predicates:
-            - Path=/api/auth/**, /api/users/**
-
+            - Path=/api/v1/auth/**, /api/v1/users/**
+          # Thêm bộ lọc cho user-service để đảm bảo tính nhất quán
+          filters:
+            - StripPrefix=2
         - id: recipe-service
-          uri: http://localhost:8082 # Địa chỉ của recipe-service
+          uri: lb://recipe-service
           predicates:
-            - Path=/api/recipes/**
+            - Path=/api/v1/recipes/**
+          # === THÊM BỘ LỌC NÀY VÀO ===
+          filters:
+            - StripPrefix=2
 
         # --- THÊM ROUTE MỚI NÀY VÀO ---
         - id: ai-service
@@ -32,3 +35,4 @@ application:
     jwt:
       secret-key: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
       expiration: 86400000
+

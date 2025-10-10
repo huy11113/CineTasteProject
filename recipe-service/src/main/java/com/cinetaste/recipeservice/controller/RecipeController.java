@@ -1,22 +1,24 @@
 package com.cinetaste.recipeservice.controller;
 
-import com.cinetaste.recipeservice.dto.CreateRecipeRequest;
-import com.cinetaste.recipeservice.dto.RateRecipeRequest;
-import com.cinetaste.recipeservice.dto.RecipeResponse;
+import com.cinetaste.recipeservice.dto.*;
+import com.cinetaste.recipeservice.dto.ai.AnalyzeDishResponse;
 import com.cinetaste.recipeservice.entity.Recipe;
+import com.cinetaste.recipeservice.service.AiFeedbackService;
 import com.cinetaste.recipeservice.service.RecipeService;
+
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import com.cinetaste.recipeservice.dto.CommentResponse;
-import com.cinetaste.recipeservice.dto.CreateCommentRequest;
 // Bỏ import của Spring Security vì không cần nữa
 // import org.springframework.security.core.annotation.AuthenticationPrincipal;
 // import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.*;
-import com.cinetaste.recipeservice.dto.UpdateRecipeRequest;
+import org.springframework.web.multipart.MultipartFile;
+import reactor.core.publisher.Mono;
+
 import java.util.List;
 import java.util.UUID;
 
@@ -26,7 +28,7 @@ import java.util.UUID;
 public class RecipeController {
 
     private final RecipeService recipeService;
-
+    private final AiFeedbackService aiFeedbackService;
     @PostMapping
     public ResponseEntity<Recipe> createRecipe(
             @Valid @RequestBody CreateRecipeRequest request,
@@ -116,5 +118,28 @@ public class RecipeController {
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
         }
+    }
+    // === CHUYỂN ENDPOINT TỪ AiController VÀO ĐÂY ===
+
+    @PostMapping(value = "/ai/analyze-dish", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public Mono<ResponseEntity<AnalyzeDishResponse>> analyzeDish(
+            @RequestHeader("X-User-ID") String userIdHeader,
+            @RequestPart("image") MultipartFile image,
+            @RequestPart(value = "context", required = false) String context
+    ) {
+        UUID userId = UUID.fromString(userIdHeader);
+        return recipeService.analyzeDishAndLog(image, context, userId)
+                .map(ResponseEntity::ok)
+                .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
+
+    @PostMapping("/ai/feedback")
+    public ResponseEntity<Void> submitFeedback(
+            @RequestHeader("X-User-ID") String userIdHeader,
+            @RequestBody AiFeedbackRequest feedbackRequest
+    ) {
+        UUID userId = UUID.fromString(userIdHeader);
+        aiFeedbackService.saveFeedback(userId, feedbackRequest);
+        return ResponseEntity.ok().build();
     }
 }
