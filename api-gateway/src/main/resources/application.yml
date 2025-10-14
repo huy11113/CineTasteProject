@@ -23,13 +23,12 @@ spring:
           filters:
             - StripPrefix=2
 
-        # --- THÊM ROUTE MỚI NÀY VÀO ---
+
         - id: ai-service
-          uri: http://localhost:8083 # Địa chỉ của ai-service
+          uri: http://localhost:8083
           predicates:
             - Path=/api/ai/**
 
-# Thêm cấu hình JWT giống hệt các service khác
 application:
   security:
     jwt:
