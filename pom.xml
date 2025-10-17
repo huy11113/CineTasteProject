@@ -24,7 +24,7 @@
 		<module>user-service</module>
 		<module>api-gateway</module>
 		<module>recipe-service</module>
-		<module>ai-service</module>
+
 	</modules>
 
 	<dependencyManagement>

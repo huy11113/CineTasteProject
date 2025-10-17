@@ -4,34 +4,40 @@ server:
 spring:
   application:
     name: api-gateway
-  # (Các phần khác)
   cloud:
     gateway:
       routes:
         - id: user-service
-          uri: lb://user-service
+          uri: http://localhost:8081 # Đi thẳng đến user-service
           predicates:
-            - Path=/api/v1/auth/**, /api/v1/users/**
-          # Thêm bộ lọc cho user-service để đảm bảo tính nhất quán
-          filters:
-            - StripPrefix=2
-        - id: recipe-service
-          uri: lb://recipe-service
-          predicates:
-            - Path=/api/v1/recipes/**
-          # === THÊM BỘ LỌC NÀY VÀO ===
-          filters:
-            - StripPrefix=2
+            - Path=/api/auth/**, /api/users/** # Xóa /v1/
+          # Không cần StripPrefix, vì đường dẫn đã khớp với Controller
 
+        - id: recipe-service
+          uri: http://localhost:8082 # Đi thẳng đến recipe-service
+          predicates:
+            - Path=/api/recipes/** # Xóa /v1/
+          # Không cần StripPrefix
 
         - id: ai-service
-          uri: http://localhost:8083
+          # Port 8000 được định nghĩa trong recipe-service properties
+          uri: http://localhost:8000
           predicates:
             - Path=/api/ai/**
+          # Giữ nguyên /api/ai/ vì app.py cũng dùng /api/ai/
+          filters:
+            - RewritePath=/api/ai/(?<segment>.*), /api/ai/$\{segment}
+
+# Tắt Eureka client ở Gateway nếu không dùng
+eureka:
+  client:
+    enabled: false
+    register-with-eureka: false
+    fetch-registry: false
 
 application:
   security:
     jwt:
-      secret-key: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+      # NÊN DÙNG BIẾN MÔI TRƯỜNG
+      secret-key: ${JWT_SECRET_KEY:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
       expiration: 86400000
-

@@ -35,7 +35,8 @@ public class AuthenticationGatewayFilterFactory extends AbstractGatewayFilterFac
             List<Predicate<ServerHttpRequest>> publicEndpoints = List.of(
                     r -> r.getURI().getPath().startsWith("/api/auth/"),
                     r -> r.getMethod().equals(HttpMethod.GET) && r.getURI().getPath().matches("/api/users/[^/]+$"),
-                    r -> r.getMethod().equals(HttpMethod.GET) && r.getURI().getPath().startsWith("/api/recipes") // Cho phép xem công thức và bình luận
+                    r -> r.getMethod().equals(HttpMethod.GET) && r.getURI().getPath().matches("/api/recipes(/[^/]+)?$"), // Chỉ cho phép list và detail
+                    r -> r.getMethod().equals(HttpMethod.GET) && r.getURI().getPath().matches("/api/recipes/[^/]+/comments$") // Comments cũng public
             );
 
             // Kiểm tra xem request có khớp với bất kỳ endpoint công khai nào không

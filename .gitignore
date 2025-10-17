@@ -1,10 +1,11 @@
+# Maven
 HELP.md
 target/
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
 
-### STS ###
+# STS
 .apt_generated
 .classpath
 .factorypath
@@ -13,13 +14,13 @@ target/
 .springBeans
 .sts4-cache
 
-### IntelliJ IDEA ###
+# IntelliJ IDEA
 .idea
 *.iws
 *.iml
 *.ipr
 
-### NetBeans ###
+# NetBeans
 /nbproject/private/
 /nbbuild/
 /dist/
@@ -29,5 +30,85 @@ build/
 !**/src/main/**/build/
 !**/src/test/**/build/
 
-### VS Code ###
+# VS Code
 .vscode/
+
+# ================================
+# CRITICAL: Environment & Secrets
+# ================================
+**/.env
+**/.env.*
+!**/.env.example
+**/application-local.yml
+**/application-dev.yml
+**/application-prod.yml
+*.key
+*.pem
+*.p12
+secrets/
+
+# ================================
+# Logs & Temporary Files
+# ================================
+*.log
+logs/
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# ================================
+# Database Files
+# ================================
+*.db
+*.sqlite
+*.sqlite3
+*.h2.db
+
+# ================================
+# OS Files
+# ================================
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ================================
+# Python (AI Service)
+# ================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# ================================
+# Docker
+# ================================
+docker-compose.override.yml
+
+# ================================
+# Node/Frontend (future)
+# ================================
+node_modules/
+npm-debug.log
+yarn-error.log
+dist/
+.next/
+
+# ================================
+# Application Specific
+# ================================
+uploads/
+temp-uploads/
+cache/

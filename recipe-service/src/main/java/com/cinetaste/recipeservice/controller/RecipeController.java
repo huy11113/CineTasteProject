@@ -8,6 +8,9 @@ import com.cinetaste.recipeservice.service.RecipeService;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -23,7 +26,7 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/recipes")
+@RequestMapping("sr60/recipes")
 @RequiredArgsConstructor
 public class RecipeController {
 
@@ -41,8 +44,12 @@ public class RecipeController {
     }
 
     @GetMapping
-    public ResponseEntity<List<RecipeResponse>> getAllRecipes() {
-        return ResponseEntity.ok(recipeService.getAllRecipes());
+    public ResponseEntity<Page<RecipeResponse>> getAllRecipes(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "createdAt,desc") String[] sort
+    ) {
+        return ResponseEntity.ok(recipeService.getAllRecipes(PageRequest.of(page, size, Sort.by(sort))));
     }
 
     @GetMapping("/{recipeId}")
