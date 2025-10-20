@@ -1,4 +1,5 @@
 services:
+  # 1. Database
   postgres-db:
     image: postgres:16-alpine
     container_name: cinetaste-db
@@ -10,6 +11,86 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cinetaste_user -d cinetaste_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
+
+  # 2. AI Service (Python)
+  ai-service:
+    build: ./ai_service # OK, vì service này độc lập
+    container_name: ai-service
+    env_file: .env
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # 3. User Service (Java) - ĐÃ SỬA
+  user-service:
+    build:
+      context: .  # <-- SỬA 1: Dùng thư mục gốc làm bối cảnh
+      dockerfile: ./user-service/Dockerfile # <-- SỬA 2: Chỉ rõ file Dockerfile
+    container_name: user-service
+    env_file: .env
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-db:5432/cinetaste_db
+      SPRING_DATASOURCE_USERNAME: cinetaste_user
+      SPRING_DATASOURCE_PASSWORD: test123
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      SPRING_FLYWAY_ENABLED: true
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    restart: on-failure
+
+  # 4. Recipe Service (Java) - ĐÃ SỬA
+  recipe-service:
+    build:
+      context: .  # <-- SỬA 1
+      dockerfile: ./recipe-service/Dockerfile # <-- SỬA 2
+    container_name: recipe-service
+    env_file: .env
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-db:5432/cinetaste_db
+      SPRING_DATASOURCE_USERNAME: cinetaste_user
+      SPRING_DATASOURCE_PASSWORD: test123
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      SPRING_FLYWAY_ENABLED: true
+      AI_SERVICE_BASE_URL: http://ai-service:8000/api/ai
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+      ai-service:
+        condition: service_healthy
+    restart: on-failure
+
+  # 5. API Gateway (Java) - ĐÃ SỬA
+  api-gateway:
+    build:
+      context: .  # <-- SỬA 1
+      dockerfile: ./api-gateway/Dockerfile # <-- SỬA 2
+    container_name: api-gateway
+    env_file: .env
+    environment:
+      SPRING_CLOUD_GATEWAY_ROUTES_0_URI: http://user-service:8081
+      SPRING_CLOUD_GATEWAY_ROUTES_1_URI: http://recipe-service:8082
+    ports:
+      - "8080:8080"
+    depends_on:
+      - user-service
+      - recipe-service
+    restart: on-failure
+
 volumes:
   postgres_data:
