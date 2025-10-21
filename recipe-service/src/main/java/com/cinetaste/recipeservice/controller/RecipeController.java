@@ -14,9 +14,11 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-// Bỏ import của Spring Security vì không cần nữa
-// import org.springframework.security.core.annotation.AuthenticationPrincipal;
-// import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault; // Import mới
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -26,7 +28,7 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("sr60/recipes")
+@RequestMapping("/api/recipes")
 @RequiredArgsConstructor
 public class RecipeController {
 
@@ -44,12 +46,11 @@ public class RecipeController {
     }
 
     @GetMapping
-    public ResponseEntity<Page<RecipeResponse>> getAllRecipes(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size,
-            @RequestParam(defaultValue = "createdAt,desc") String[] sort
-    ) {
-        return ResponseEntity.ok(recipeService.getAllRecipes(PageRequest.of(page, size, Sort.by(sort))));
+// Sử dụng @PageableDefault để Spring tự động tạo Pageable từ request params
+// Hoặc bạn có thể giữ nguyên cách cũ với @RequestParam nhưng phải tự tạo PageRequest
+    public ResponseEntity<Page<RecipeResponse>> getAllRecipes(@PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        // Gọi đến service method đã sửa
+        return ResponseEntity.ok(recipeService.getAllRecipes(pageable));
     }
 
     @GetMapping("/{recipeId}")

@@ -20,7 +20,8 @@ import java.util.Optional;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.multipart.MultipartFile;
 import reactor.core.publisher.Mono;
-
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import java.math.BigDecimal;
 import java.text.Normalizer;
 import java.util.List;
@@ -71,11 +72,9 @@ public class RecipeService {
         return slug.toLowerCase(Locale.ENGLISH) + "-" + System.currentTimeMillis(); // Thêm timestamp để đảm bảo duy nhất
     }
     // --- HÀM MỚI ---
-    public List<RecipeResponse> getAllRecipes() {
-        return recipeRepository.findAll()
-                .stream()
-                .map(this::mapToRecipeResponse)
-                .collect(Collectors.toList());
+    public Page<RecipeResponse> getAllRecipes(Pageable pageable) {
+        return recipeRepository.findAll(pageable) // Truyền pageable vào repository
+                .map(this::mapToRecipeResponse); // map kết quả Page<Recipe> thành Page<RecipeResponse>
     }
 
     // --- HÀM MỚI ---
