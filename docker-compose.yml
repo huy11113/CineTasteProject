@@ -30,10 +30,12 @@ services:
     networks:
       - cinetaste-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      # ✅ SỬA: Dùng wget thay vì curl (Python image có sẵn wget)
+      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/\")' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 10s
     restart: unless-stopped
 
   # 3. User Service (Java)
@@ -56,6 +58,12 @@ services:
     depends_on:
       postgres-db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8081/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     restart: on-failure
 
   # 4. Recipe Service (Java)
@@ -81,6 +89,12 @@ services:
         condition: service_healthy
       ai-service:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8082/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     restart: on-failure
 
   # 5. API Gateway (Java)
@@ -91,15 +105,22 @@ services:
     container_name: api-gateway
     env_file: .env
     environment:
-      # Không cần override routes URI ở đây nữa, dùng tên service trong YAML
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
     ports:
       - "8080:8080"
     networks:
       - cinetaste-network
     depends_on:
-      - user-service
-      - recipe-service
+      user-service:
+        condition: service_healthy
+      recipe-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     restart: on-failure
 
 # Định nghĩa network

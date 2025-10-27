@@ -29,7 +29,7 @@ spring:
           predicates:
             - Path=/api/ai/**
           filters:
-            - name: Authentication
+           
 
 # Tắt Eureka (không dùng service discovery)
 eureka:
