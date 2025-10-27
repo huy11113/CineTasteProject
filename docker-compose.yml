@@ -11,6 +11,8 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - cinetaste-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U cinetaste_user -d cinetaste_db"]
       interval: 10s
@@ -20,11 +22,13 @@ services:
 
   # 2. AI Service (Python)
   ai-service:
-    build: ./ai_service # OK, vì service này độc lập
+    build: ./ai_service
     container_name: ai-service
     env_file: .env
     ports:
       - "8000:8000"
+    networks:
+      - cinetaste-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/"]
       interval: 30s
@@ -32,11 +36,11 @@ services:
       retries: 3
     restart: unless-stopped
 
-  # 3. User Service (Java) - ĐÃ SỬA
+  # 3. User Service (Java)
   user-service:
     build:
-      context: .  # <-- SỬA 1: Dùng thư mục gốc làm bối cảnh
-      dockerfile: ./user-service/Dockerfile # <-- SỬA 2: Chỉ rõ file Dockerfile
+      context: .
+      dockerfile: ./user-service/Dockerfile
     container_name: user-service
     env_file: .env
     environment:
@@ -47,16 +51,18 @@ services:
       SPRING_FLYWAY_ENABLED: true
     ports:
       - "8081:8081"
+    networks:
+      - cinetaste-network
     depends_on:
       postgres-db:
         condition: service_healthy
     restart: on-failure
 
-  # 4. Recipe Service (Java) - ĐÃ SỬA
+  # 4. Recipe Service (Java)
   recipe-service:
     build:
-      context: .  # <-- SỬA 1
-      dockerfile: ./recipe-service/Dockerfile # <-- SỬA 2
+      context: .
+      dockerfile: ./recipe-service/Dockerfile
     container_name: recipe-service
     env_file: .env
     environment:
@@ -66,9 +72,10 @@ services:
       SPRING_JPA_HIBERNATE_DDL_AUTO: validate
       SPRING_FLYWAY_ENABLED: true
       AI_SERVICE_BASE_URL: http://ai-service:8000/api/ai
-
     ports:
       - "8082:8082"
+    networks:
+      - cinetaste-network
     depends_on:
       postgres-db:
         condition: service_healthy
@@ -76,22 +83,29 @@ services:
         condition: service_healthy
     restart: on-failure
 
-  # 5. API Gateway (Java) - ĐÃ SỬA
+  # 5. API Gateway (Java)
   api-gateway:
     build:
-      context: .  # <-- SỬA 1
-      dockerfile: ./api-gateway/Dockerfile # <-- SỬA 2
+      context: .
+      dockerfile: ./api-gateway/Dockerfile
     container_name: api-gateway
     env_file: .env
     environment:
-      SPRING_CLOUD_GATEWAY_ROUTES_0_URI: http://user-service:8081
-      SPRING_CLOUD_GATEWAY_ROUTES_1_URI: http://recipe-service:8082
+      # Không cần override routes URI ở đây nữa, dùng tên service trong YAML
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
     ports:
       - "8080:8080"
+    networks:
+      - cinetaste-network
     depends_on:
       - user-service
       - recipe-service
     restart: on-failure
+
+# Định nghĩa network
+networks:
+  cinetaste-network:
+    driver: bridge
 
 volumes:
   postgres_data:

@@ -7,37 +7,40 @@ spring:
   cloud:
     gateway:
       routes:
+        # Route 1: User Service
         - id: user-service
-          uri: http://localhost:8081 # Đi thẳng đến user-service
+          uri: http://user-service:8081  # ĐÃ SỬA: Dùng tên service trong Docker network
           predicates:
-            - Path=/api/auth/**, /api/users/** # Xóa /v1/
-          # Không cần StripPrefix, vì đường dẫn đã khớp với Controller
+            - Path=/api/auth/**, /api/users/**
+          filters:
+            - name: Authentication  # Áp dụng filter xác thực JWT
 
+        # Route 2: Recipe Service
         - id: recipe-service
-          uri: http://localhost:8082 # Đi thẳng đến recipe-service
+          uri: http://recipe-service:8082  # ĐÃ SỬA: Dùng tên service trong Docker network
           predicates:
-            - Path=/api/recipes/** # Xóa /v1/
-          # Không cần StripPrefix
+            - Path=/api/recipes/**
+          filters:
+            - name: Authentication
 
+        # Route 3: AI Service
         - id: ai-service
-          # Port 8000 được định nghĩa trong recipe-service properties
-          uri: http://localhost:8000
+          uri: http://ai-service:8000  # ĐÃ SỬA: Dùng tên service trong Docker network
           predicates:
             - Path=/api/ai/**
-          # Giữ nguyên /api/ai/ vì app.py cũng dùng /api/ai/
           filters:
-            - RewritePath=/api/ai/(?<segment>.*), /api/ai/$\{segment}
+            - name: Authentication
 
-# Tắt Eureka client ở Gateway nếu không dùng
+# Tắt Eureka (không dùng service discovery)
 eureka:
   client:
     enabled: false
     register-with-eureka: false
     fetch-registry: false
 
+# JWT Configuration
 application:
   security:
     jwt:
-      # NÊN DÙNG BIẾN MÔI TRƯỜNG
       secret-key: ${JWT_SECRET_KEY:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
       expiration: 86400000

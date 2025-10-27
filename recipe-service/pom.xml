@@ -72,7 +72,15 @@
         <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-core</artifactId>
-            <version>10.15.2</version> </dependency>
+            <version>10.21.0</version> <!-- Thay đổi từ 10.15.2 thành 10.21.0 -->
+        </dependency>
+
+        <!-- THÊM dependency này để hỗ trợ PostgreSQL 16 -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+            <version>10.21.0</version>
+        </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-webflux</artifactId>
