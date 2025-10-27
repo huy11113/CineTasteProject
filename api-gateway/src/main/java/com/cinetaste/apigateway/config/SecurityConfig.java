@@ -18,7 +18,9 @@ public class SecurityConfig {
                 // Cho phép tất cả các request đi qua lớp bảo mật này
                 // (vì việc xác thực token đã được xử lý bởi AuthenticationFilter)
                 .authorizeExchange(exchange -> exchange
+                        .pathMatchers("/actuator/**").permitAll()
                         .anyExchange().permitAll()
+
                 );
         return http.build();
     }

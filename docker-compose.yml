@@ -42,7 +42,8 @@ services:
   user-service:
     build:
       context: .
-      dockerfile: ./user-service/Dockerfile
+      dockerfile: Dockerfile
+      target: user-service-final
     container_name: user-service
     env_file: .env
     environment:
@@ -70,7 +71,8 @@ services:
   recipe-service:
     build:
       context: .
-      dockerfile: ./recipe-service/Dockerfile
+      dockerfile: Dockerfile
+      target: recipe-service-final
     container_name: recipe-service
     env_file: .env
     environment:
@@ -101,7 +103,8 @@ services:
   api-gateway:
     build:
       context: .
-      dockerfile: ./api-gateway/Dockerfile
+      dockerfile: Dockerfile
+      target: api-gateway-final
     container_name: api-gateway
     env_file: .env
     environment:

@@ -67,6 +67,7 @@ public class SecurityConfig {
                         // Cho phép request GET đến hồ sơ người dùng mà không cần đăng nhập
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/users/{username}").permitAll()
                         // Tất cả các request còn lại đều phải được xác thực
+                        .requestMatchers("/actuator/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
