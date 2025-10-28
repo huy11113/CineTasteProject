@@ -5,7 +5,7 @@ services:
     container_name: cinetaste-db
     environment:
       POSTGRES_USER: cinetaste_user
-      POSTGRES_PASSWORD: test123
+      POSTGRES_PASSWORD: test123 # Lấy từ .env hoặc để trực tiếp nếu chỉ dùng local
       POSTGRES_DB: cinetaste_db
     ports:
       - "5432:5432"
@@ -20,59 +20,72 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # 2. AI Service (Python)
+  # 2. AI Service (Python - Optimized)
   ai-service:
-    build: ./ai_service
+    build:
+      context: ./ai_service # Đường dẫn đến thư mục chứa Dockerfile và code AI
+      dockerfile: Dockerfile
     container_name: ai-service
-    env_file: .env
+    env_file: .env # Đảm bảo file .env có GOOGLE_API_KEY
     ports:
       - "8000:8000"
     networks:
       - cinetaste-network
+    # --- RESOURCE ALLOCATION ---
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'      # Giới hạn tối đa 2 CPU cores (điều chỉnh theo máy)
+          memory: 2G       # Giới hạn tối đa 2GB RAM (điều chỉnh theo nhu cầu)
+        reservations:
+          cpus: '0.5'      # Đảm bảo ít nhất 0.5 core
+          memory: 512M     # Đảm bảo ít nhất 512MB RAM
+    # --- HEALTHCHECK ---
     healthcheck:
-      # ✅ SỬA: Dùng wget thay vì curl (Python image có sẵn wget)
+      # Sử dụng lệnh python đơn giản để kiểm tra endpoint health check "/"
       test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/\")' || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
+      interval: 20s        # Kiểm tra mỗi 20 giây
+      timeout: 10s         # Chờ tối đa 10 giây
+      retries: 3           # Thử lại 3 lần nếu thất bại
+      start_period: 30s    # Chờ 30 giây sau khi start mới bắt đầu kiểm tra
     restart: unless-stopped
 
   # 3. User Service (Java)
   user-service:
     build:
-      context: .
+      context: . # Thư mục gốc chứa Dockerfile đa giai đoạn
       dockerfile: Dockerfile
-      target: user-service-final
+      target: user-service-final # Build đến giai đoạn user-service
     container_name: user-service
-    env_file: .env
+    env_file: .env # Lấy JWT_SECRET_KEY từ đây
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-db:5432/cinetaste_db
       SPRING_DATASOURCE_USERNAME: cinetaste_user
-      SPRING_DATASOURCE_PASSWORD: test123
-      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
-      SPRING_FLYWAY_ENABLED: true
+      SPRING_DATASOURCE_PASSWORD: test123 # Nên lấy từ .env hoặc secret manager trong production
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate # Đảm bảo schema khớp
+      SPRING_FLYWAY_ENABLED: true # Cho phép Flyway chạy migration
+      # JAVA_TOOL_OPTIONS: "-Xmx512m -Xms256m" # Tùy chọn: giới hạn RAM cho JVM
     ports:
       - "8081:8081"
     networks:
       - cinetaste-network
     depends_on:
       postgres-db:
-        condition: service_healthy
+        condition: service_healthy # Chỉ start khi DB healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8081/actuator/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 40s
-    restart: on-failure
+      start_period: 40s # Chờ lâu hơn cho Java app khởi động
+    restart: on-failure # Khởi động lại nếu container bị lỗi
 
   # 4. Recipe Service (Java)
   recipe-service:
     build:
       context: .
       dockerfile: Dockerfile
-      target: recipe-service-final
+      target: recipe-service-final # Build đến giai đoạn recipe-service
     container_name: recipe-service
     env_file: .env
     environment:
@@ -81,7 +94,9 @@ services:
       SPRING_DATASOURCE_PASSWORD: test123
       SPRING_JPA_HIBERNATE_DDL_AUTO: validate
       SPRING_FLYWAY_ENABLED: true
-      AI_SERVICE_BASE_URL: http://ai-service:8000/api/ai
+      # --- URL TRỎ ĐẾN API GATEWAY ---
+      AI_SERVICE_BASE_URL: http://api-gateway:8080/api/ai # Giữ nguyên gọi qua Gateway
+      # JAVA_TOOL_OPTIONS: "-Xmx512m -Xms256m"
     ports:
       - "8082:8082"
     networks:
@@ -90,7 +105,7 @@ services:
       postgres-db:
         condition: service_healthy
       ai-service:
-        condition: service_healthy
+        condition: service_healthy # Chờ AI service healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8082/actuator/health || exit 1"]
       interval: 30s
@@ -104,32 +119,36 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      target: api-gateway-final
+      target: api-gateway-final # Build đến giai đoạn api-gateway
     container_name: api-gateway
-    env_file: .env
+    env_file: .env # Lấy JWT_SECRET_KEY
     environment:
-      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      # JWT_SECRET_KEY được lấy từ env_file
+      # Cấu hình routes đã nằm trong application.yml của gateway
+      SPRING_PROFILES_ACTIVE: default # Đảm bảo application.yml được load
+      # JAVA_TOOL_OPTIONS: "-Xmx256m -Xms128m"
     ports:
       - "8080:8080"
     networks:
       - cinetaste-network
     depends_on:
       user-service:
-        condition: service_healthy
+        condition: service_healthy # Chờ User service healthy
       recipe-service:
-        condition: service_healthy
+        condition: service_healthy # Chờ Recipe service healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 30s
+      start_period: 30s # Gateway thường khởi động nhanh hơn
     restart: on-failure
 
-# Định nghĩa network
+# Định nghĩa network chung
 networks:
   cinetaste-network:
-    driver: bridge
+    driver: bridge # Mạng bridge mặc định
 
+# Định nghĩa volume để lưu dữ liệu DB
 volumes:
   postgres_data:

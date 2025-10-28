@@ -1,5 +1,6 @@
 fastapi
 uvicorn[standard]
+gunicorn # <--- THÊM DÒNG NÀY
 python-dotenv
 google-generativeai
 Pillow
