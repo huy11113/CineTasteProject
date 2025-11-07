@@ -12,4 +12,6 @@ import lombok.NoArgsConstructor;
 public class LoginResponse {
     private String token;
     private String username;
+    private String displayName;
+    private String profileImageUrl;
 }

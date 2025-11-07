@@ -30,13 +30,15 @@ public class AuthenticationService {
         User user = userRepository.findByUsernameOrEmail(request.getLoginIdentifier(), request.getLoginIdentifier())
                 .orElseThrow(() -> new IllegalArgumentException("Invalid username or email after authentication"));
 
-        // 3. Sinh JWT Token từ đối tượng User (thay vì UserDetails)
-        String token = jwtService.generateToken(user); // <-- THAY ĐỔI Ở ĐÂY
+        // 3. Sinh JWT Token từ đối tượng User
+        String token = jwtService.generateToken(user);
 
-        // 4. Trả về token và thông tin người dùng
+        // 4. Trả về token và thông tin người dùng (ĐÃ CẬP NHẬT)
         return LoginResponse.builder()
                 .token(token)
                 .username(user.getUsername())
+                .displayName(user.getDisplayName()) // <-- THÊM DÒNG NÀY
+                .profileImageUrl(user.getProfileImageUrl()) // <-- THÊM DÒNG NÀY
                 .build();
     }
 }

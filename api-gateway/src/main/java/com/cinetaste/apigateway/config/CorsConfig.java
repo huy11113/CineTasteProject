@@ -14,7 +14,7 @@ import java.util.Collections;
 public class CorsConfig {
 
     // Cho phép CORS từ localhost:3000 (địa chỉ frontend của bạn)
-    private final String allowedOrigin = "http://localhost:3000";
+    private final String allowedOrigin = "http://localhost:5173";
 
     @Bean
     public CorsWebFilter corsWebFilter() {

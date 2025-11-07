@@ -23,4 +23,6 @@ public class RecipeResponse {
     private String mainImageUrl;
     private BigDecimal avgRating;
     private Instant createdAt;
+    private String movieTitle;
+    private Integer ratingsCount;
 }

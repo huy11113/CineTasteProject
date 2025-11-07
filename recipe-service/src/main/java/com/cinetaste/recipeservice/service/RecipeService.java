@@ -100,6 +100,8 @@ public class RecipeService {
                 .mainImageUrl(recipe.getMainImageUrl())
                 .avgRating(recipe.getAvgRating())
                 .createdAt(recipe.getCreatedAt())
+                .ratingsCount(recipe.getRatingsCount())
+                .movieTitle(recipe.getMovie() != null ? recipe.getMovie().getTitle() : "Phim không xác định")
                 .build();
     }
 
