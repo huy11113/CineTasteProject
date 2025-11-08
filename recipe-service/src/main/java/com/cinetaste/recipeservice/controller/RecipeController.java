@@ -9,16 +9,12 @@ import com.cinetaste.recipeservice.service.RecipeService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable; // Đảm bảo import này
 import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.web.PageableDefault; // Import mới
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -34,45 +30,54 @@ public class RecipeController {
 
     private final RecipeService recipeService;
     private final AiFeedbackService aiFeedbackService;
+
+    // (Hàm createRecipe không đổi)
     @PostMapping
     public ResponseEntity<Recipe> createRecipe(
             @Valid @RequestBody CreateRecipeRequest request,
-            @RequestHeader("X-User-ID") String userIdHeader) { // <-- THAY ĐỔI: Nhận header từ Gateway
+            @RequestHeader("X-User-ID") String userIdHeader) {
 
-        // Chuyển đổi string sang UUID
         UUID authorId = UUID.fromString(userIdHeader);
         Recipe createdRecipe = recipeService.createRecipe(request, authorId);
         return ResponseEntity.status(HttpStatus.CREATED).body(createdRecipe);
     }
 
+    // (Hàm getAllRecipes không đổi - trả về tóm tắt)
     @GetMapping
-// Sử dụng @PageableDefault để Spring tự động tạo Pageable từ request params
-// Hoặc bạn có thể giữ nguyên cách cũ với @RequestParam nhưng phải tự tạo PageRequest
-    public ResponseEntity<Page<RecipeResponse>> getAllRecipes(@PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-        // Gọi đến service method đã sửa
+    public ResponseEntity<Page<RecipeResponse>> getAllRecipes(
+            @PageableDefault(size = 9, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
+    ) {
         return ResponseEntity.ok(recipeService.getAllRecipes(pageable));
     }
 
+    // --- SỬA HÀM NÀY (Lỗi 1) ---
+    // Trả về RecipeDetailResponse (đầy đủ chi tiết)
     @GetMapping("/{recipeId}")
-    public ResponseEntity<RecipeResponse> getRecipeById(@PathVariable UUID recipeId) {
+    public ResponseEntity<RecipeDetailResponse> getRecipeById(@PathVariable UUID recipeId) { // <-- Sửa kiểu trả về
         try {
-            return ResponseEntity.ok(recipeService.getRecipeById(recipeId));
+            // Sửa tên hàm được gọi cho khớp với Service
+            RecipeDetailResponse recipeDetail = recipeService.getRecipeDetailById(recipeId);
+            return ResponseEntity.ok(recipeDetail);
         } catch (RuntimeException e) {
+            // TODO: Phân biệt lỗi Not Found và lỗi khác
             return ResponseEntity.notFound().build();
         }
     }
+    // --- KẾT THÚC SỬA ---
 
+    // (Hàm rateRecipe không đổi)
     @PostMapping("/{recipeId}/ratings")
     public ResponseEntity<Void> rateRecipe(
             @PathVariable UUID recipeId,
             @Valid @RequestBody RateRecipeRequest request,
-            @RequestHeader("X-User-ID") String userIdHeader) { // <-- THAY ĐỔI: Nhận header từ Gateway
+            @RequestHeader("X-User-ID") String userIdHeader) {
 
         UUID userId = UUID.fromString(userIdHeader);
         recipeService.rateRecipe(recipeId, request, userId);
         return ResponseEntity.ok().build();
     }
-    // --- ENDPOINT MỚI: Thêm một bình luận --
+
+    // (Hàm addComment không đổi)
     @PostMapping("/{recipeId}/comments")
     public ResponseEntity<CommentResponse> addComment(
             @PathVariable UUID recipeId,
@@ -84,7 +89,7 @@ public class RecipeController {
         return ResponseEntity.status(HttpStatus.CREATED).body(newComment);
     }
 
-    // --- ENDPOINT MỚI: Lấy tất cả bình luận của một công thức --
+    // (Hàm getComments không đổi)
     @GetMapping("/{recipeId}/comments")
     public ResponseEntity<List<CommentResponse>> getComments(@PathVariable UUID recipeId) {
         try {
@@ -93,7 +98,8 @@ public class RecipeController {
             return ResponseEntity.notFound().build();
         }
     }
-    // --- ENDPOINT MỚI: Cập nhật một công thức ---
+
+    // (Hàm updateRecipe không đổi)
     @PutMapping("/{recipeId}")
     public ResponseEntity<RecipeResponse> updateRecipe(
             @PathVariable UUID recipeId,
@@ -111,7 +117,7 @@ public class RecipeController {
         }
     }
 
-    // --- ENDPOINT MỚI: Xóa một công thức ---
+    // (Hàm deleteRecipe không đổi)
     @DeleteMapping("/{recipeId}")
     public ResponseEntity<Void> deleteRecipe(
             @PathVariable UUID recipeId,
@@ -120,15 +126,15 @@ public class RecipeController {
         UUID currentUserId = UUID.fromString(userIdHeader);
         try {
             recipeService.deleteRecipe(recipeId, currentUserId);
-            return ResponseEntity.noContent().build(); // Trả về 204 No Content là chuẩn cho việc xóa thành công
+            return ResponseEntity.noContent().build();
         } catch (AccessDeniedException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
         }
     }
-    // === CHUYỂN ENDPOINT TỪ AiController VÀO ĐÂY ===
 
+    // (Các hàm AI không đổi)
     @PostMapping(value = "/ai/analyze-dish", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public Mono<ResponseEntity<AnalyzeDishResponse>> analyzeDish(
             @RequestHeader("X-User-ID") String userIdHeader,

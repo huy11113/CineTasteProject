@@ -1,5 +1,4 @@
--- Kích hoạt extension (để chắc chắn)
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
 
 -- ============================================
 -- PHẦN 2: BẢNG NỘI DUNG CHÍNH (do recipe-service quản lý)

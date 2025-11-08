@@ -1,11 +1,15 @@
-// Vị trí: recipe-service/src/main/java/com/cinetaste/recipeservice/entity/Recipe.java
 package com.cinetaste.recipeservice.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
-import org.hibernate.annotations.Where;
+// --- SỬA LỖI DEPRECATED ---
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.FilterDef;
+import org.hibernate.annotations.ParamDef;
+import org.hibernate.annotations.Filter;
+// --- KẾT THÚC SỬA ---
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -13,19 +17,22 @@ import java.util.List;
 import java.util.UUID;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
-// (RecipeRating đã được import)
 
 @Data
 @Entity
 @Table(name = "recipes")
-@Where(clause = "deleted_at IS NULL")
+// --- SỬA LỖI DEPRECATED: Dùng cách soft-delete mới ---
+@SQLDelete(sql = "UPDATE recipes SET deleted_at = NOW() WHERE id = ?")
+@FilterDef(name = "deletedRecipeFilter", parameters = @ParamDef(name = "isDeleted", type = Boolean.class))
+@Filter(name = "deletedRecipeFilter", condition = "deleted_at IS NULL")
+// --- KẾT THÚC SỬA ---
 public class Recipe {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(name = "author_id") // Không join, chỉ lưu ID
+    @Column(name = "author_id")
     private UUID authorId;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -48,23 +55,18 @@ public class Recipe {
     @OneToMany(mappedBy = "recipe", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<RecipeIngredient> ingredients = new ArrayList<>();
 
-    // --- SỬA QUAN HỆ TAGS (thay vì @ManyToMany) ---
     @OneToMany(mappedBy = "recipe", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<RecipeTag> recipeTags = new ArrayList<>();
 
-    // --- QUAN HỆ RATINGS (Giữ nguyên) ---
     @OneToMany(mappedBy = "recipe", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<RecipeRating> ratings = new ArrayList<>();
 
-    // --- THÊM QUAN HỆ FAVORITES ---
     @OneToMany(mappedBy = "recipe", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Favorite> favorites = new ArrayList<>();
 
-    // --- THÊM QUAN HỆ VIEWS ---
     @OneToMany(mappedBy = "recipe", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<RecipeView> views = new ArrayList<>();
 
-    // --- THÊM QUAN HỆ REPORTS ---
     @OneToMany(mappedBy = "reportedRecipe", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Report> reports = new ArrayList<>();
 
@@ -94,13 +96,13 @@ public class Recipe {
     @Column(name = "favorites_count", nullable = false)
     private Integer favoritesCount = 0;
 
-    // --- THÊM CÁC TRƯỜNG MỚI ---
+    // --- TRƯỜNG MỚI (KHỚP VỚI CSDL) ---
     @Column(name = "views_count", nullable = false)
     private Integer viewsCount = 0;
 
     @Column(name = "published_at")
     private Instant publishedAt;
-    // --- KẾT THÚC THÊM ---
+    // --- KẾT THÚC TRƯỜNG MỚI ---
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

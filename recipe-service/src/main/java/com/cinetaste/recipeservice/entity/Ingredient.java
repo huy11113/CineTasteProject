@@ -2,8 +2,8 @@ package com.cinetaste.recipeservice.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;
-import org.hibernate.annotations.CreationTimestamp; // <-- Thêm import
-import java.time.Instant; // <-- Thêm import
+import org.hibernate.annotations.CreationTimestamp;
+import java.time.Instant;
 
 @Data
 @Entity

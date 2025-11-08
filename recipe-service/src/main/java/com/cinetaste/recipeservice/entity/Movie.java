@@ -2,8 +2,8 @@ package com.cinetaste.recipeservice.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;
-import java.math.BigDecimal; // <-- Thêm import
-import java.time.LocalDate;
+import java.math.BigDecimal; // <-- Import quan trọng
+import java.time.LocalDate; // <-- Import quan trọng
 import java.util.UUID;
 
 @Data
@@ -17,6 +17,7 @@ public class Movie {
     @Column(name = "tmdb_id", unique = true, nullable = false)
     private Integer tmdbId;
 
+    @Column(nullable = false) // Đảm bảo title không null
     private String title;
 
     @Column(columnDefinition = "TEXT")
@@ -25,7 +26,7 @@ public class Movie {
     @Column(name = "poster_url")
     private String posterUrl;
 
-    // --- THÊM CÁC TRƯỜNG MỚI ---
+    // --- CÁC TRƯỜNG MỚI (KHỚP VỚI CSDL) ---
     @Column(name = "backdrop_url")
     private String backdropUrl;
 
@@ -36,10 +37,14 @@ public class Movie {
 
     @Column(name = "vote_count")
     private Integer voteCount;
-    // --- KẾT THÚC THÊM ---
+
+    @Column(name = "release_date") // <-- Đảm bảo trường này tồn tại
+    private LocalDate releaseDate;
+    // --- KẾT THÚC TRƯỜNG MỚI ---
 
     @Column(columnDefinition = "jsonb")
     private String genres;
 
-    // (createdAt và updatedAt sẽ được tự động quản lý bởi Trigger trong CSDL)
+    // Lưu ý: create_at và updated_at đã được CSDL quản lý bằng trigger
+    // nên không cần @CreationTimestamp hay @UpdateTimestamp ở đây.
 }

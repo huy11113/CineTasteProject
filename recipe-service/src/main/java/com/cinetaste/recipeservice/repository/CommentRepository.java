@@ -10,7 +10,9 @@ import java.util.UUID;
 @Repository
 public interface CommentRepository extends JpaRepository<Comment, Long> {
 
-    // Spring Data JPA sẽ tự động tạo câu lệnh để tìm tất cả bình luận
-    // của một công thức, sắp xếp theo ngày tạo gần nhất lên đầu.
-    List<Comment> findByRecipeIdOrderByCreatedAtDesc(UUID recipeId);
+    // Đổi tên hàm này để lọc ra các comment chưa bị xóa mềm
+    List<Comment> findByRecipeIdAndDeletedAtIsNullOrderByCreatedAtDesc(UUID recipeId);
+
+    // HÀM MỚI: Đếm số lượng comment
+    long countByRecipeIdAndDeletedAtIsNull(UUID recipeId);
 }
