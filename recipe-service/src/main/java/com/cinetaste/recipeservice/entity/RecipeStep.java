@@ -23,4 +23,9 @@ public class RecipeStep {
 
     @Column(name = "image_url")
     private String imageUrl;
+
+    // --- THÊM TRƯỜNG MỚI ---
+    @Column(name = "duration_minutes")
+    private Integer durationMinutes;
+    // --- KẾT THÚC THÊM ---
 }

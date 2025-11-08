@@ -2,6 +2,7 @@ package com.cinetaste.recipeservice.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import java.math.BigDecimal; // <-- Thêm import
 import java.time.LocalDate;
 import java.util.UUID;
 
@@ -24,9 +25,21 @@ public class Movie {
     @Column(name = "poster_url")
     private String posterUrl;
 
-    @Column(name = "release_date")
-    private LocalDate releaseDate;
+    // --- THÊM CÁC TRƯỜNG MỚI ---
+    @Column(name = "backdrop_url")
+    private String backdropUrl;
+
+    private Integer runtime;
+
+    @Column(name = "vote_average", precision = 3, scale = 1)
+    private BigDecimal voteAverage;
+
+    @Column(name = "vote_count")
+    private Integer voteCount;
+    // --- KẾT THÚC THÊM ---
 
     @Column(columnDefinition = "jsonb")
     private String genres;
+
+    // (createdAt và updatedAt sẽ được tự động quản lý bởi Trigger trong CSDL)
 }

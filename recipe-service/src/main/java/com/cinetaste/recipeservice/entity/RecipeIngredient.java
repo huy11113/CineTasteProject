@@ -28,4 +28,9 @@ public class RecipeIngredient {
 
     @Column(columnDefinition = "TEXT")
     private String notes;
+
+    // --- THÊM TRƯỜNG MỚI ---
+    @Column(name = "is_optional")
+    private Boolean isOptional = false;
+    // --- KẾT THÚC THÊM ---
 }

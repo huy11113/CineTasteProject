@@ -2,6 +2,8 @@ package com.cinetaste.recipeservice.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import org.hibernate.annotations.CreationTimestamp; // <-- Thêm import
+import java.time.Instant; // <-- Thêm import
 
 @Data
 @Entity
@@ -14,5 +16,17 @@ public class Ingredient {
     @Column(unique = true, nullable = false, length = 100)
     private String name;
 
+    // --- THÊM CÁC TRƯỜNG MỚI ---
+    @Column(columnDefinition = "TEXT")
+    private String description;
+
     private String category;
+
+    @Column(name = "is_allergen")
+    private Boolean isAllergen = false;
+
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt;
+    // --- KẾT THÚC THÊM ---
 }

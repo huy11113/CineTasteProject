@@ -1,7 +1,6 @@
 // Vị trí: recipe-service/src/main/java/com/cinetaste/recipeservice/entity/Recipe.java
 package com.cinetaste.recipeservice.entity;
 
-// Đảm bảo các import này là chính xác
 import jakarta.persistence.*;
 import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
@@ -14,7 +13,7 @@ import java.util.List;
 import java.util.UUID;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
-import com.cinetaste.recipeservice.entity.RecipeRating;
+// (RecipeRating đã được import)
 
 @Data
 @Entity
@@ -26,10 +25,9 @@ public class Recipe {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(name = "author_id", nullable = false)
+    @Column(name = "author_id") // Không join, chỉ lưu ID
     private UUID authorId;
 
-    // --- Mối quan hệ với Movie ---
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "movie_id")
     private Movie movie;
@@ -43,35 +41,32 @@ public class Recipe {
     @Column(columnDefinition = "TEXT")
     private String summary;
 
-    // --- Mối quan hệ với RecipeStep ---
-    @OneToMany(
-            mappedBy = "recipe",
-            cascade = CascadeType.ALL,
-            orphanRemoval = true
-    )
+    @OneToMany(mappedBy = "recipe", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("stepOrder ASC")
     private List<RecipeStep> steps = new ArrayList<>();
 
-    // --- Mối quan hệ với RecipeIngredient ---
-    @OneToMany(
-            mappedBy = "recipe",
-            cascade = CascadeType.ALL,
-            orphanRemoval = true
-    )
+    @OneToMany(mappedBy = "recipe", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<RecipeIngredient> ingredients = new ArrayList<>();
 
-    // --- Mối quan hệ với Tag ---
-    @ManyToMany(fetch = FetchType.EAGER)
-    @JoinTable(
-            name = "recipe_tags",
-            joinColumns = @JoinColumn(name = "recipe_id"),
-            inverseJoinColumns = @JoinColumn(name = "tag_id")
-    )
-    private List<Tag> tags = new ArrayList<>();
+    // --- SỬA QUAN HỆ TAGS (thay vì @ManyToMany) ---
+    @OneToMany(mappedBy = "recipe", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<RecipeTag> recipeTags = new ArrayList<>();
 
-    // --Mối quan hệ rating --
+    // --- QUAN HỆ RATINGS (Giữ nguyên) ---
     @OneToMany(mappedBy = "recipe", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<RecipeRating> ratings = new ArrayList<>();
+
+    // --- THÊM QUAN HỆ FAVORITES ---
+    @OneToMany(mappedBy = "recipe", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Favorite> favorites = new ArrayList<>();
+
+    // --- THÊM QUAN HỆ VIEWS ---
+    @OneToMany(mappedBy = "recipe", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<RecipeView> views = new ArrayList<>();
+
+    // --- THÊM QUAN HỆ REPORTS ---
+    @OneToMany(mappedBy = "reportedRecipe", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Report> reports = new ArrayList<>();
 
     private Short difficulty;
     @Column(name = "prep_time_minutes")
@@ -85,9 +80,11 @@ public class Recipe {
     private String visibility = "public";
     @Column(name = "main_image_url")
     private String mainImageUrl;
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "nutrition_info", columnDefinition = "jsonb")
     private String nutritionInfo;
+
     @Column(name = "avg_rating", nullable = false, precision = 3, scale = 2)
     private BigDecimal avgRating = BigDecimal.ZERO;
     @Column(name = "ratings_count", nullable = false)
@@ -96,6 +93,14 @@ public class Recipe {
     private Integer commentsCount = 0;
     @Column(name = "favorites_count", nullable = false)
     private Integer favoritesCount = 0;
+
+    // --- THÊM CÁC TRƯỜNG MỚI ---
+    @Column(name = "views_count", nullable = false)
+    private Integer viewsCount = 0;
+
+    @Column(name = "published_at")
+    private Instant publishedAt;
+    // --- KẾT THÚC THÊM ---
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
