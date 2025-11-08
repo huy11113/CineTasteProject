@@ -16,10 +16,9 @@ import java.util.UUID;
 @AllArgsConstructor
 @Entity
 @Table(name = "ai_requests_log")
-@IdClass(AiRequestsLogId.class) // <-- THÊM DÒNG NÀY
 public class AiRequestsLog {
 
-    @Id // <-- SỬA
+    @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
@@ -44,7 +43,6 @@ public class AiRequestsLog {
     @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
 
-    @Id // <-- THÊM DÒNG NÀY
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

@@ -186,7 +186,7 @@ CREATE TABLE recipe_views (
 -- 16. Bảng ai_feedback
 CREATE TABLE ai_feedback (
     id BIGSERIAL PRIMARY KEY,
-    user_id UUID NOT NULL, -- ID của user từ user-service
+    user_id UUID NOT NULL,
     recipe_id UUID REFERENCES recipes(id) ON DELETE SET NULL,
     ai_feature VARCHAR(50) NOT NULL,
     rating SMALLINT NOT NULL CHECK (rating >= 1 AND rating <= 5),
@@ -197,21 +197,18 @@ CREATE TABLE ai_feedback (
     CONSTRAINT check_ai_feature CHECK (ai_feature IN ('analyze-dish', 'modify-recipe', 'create-by-theme', 'critique-dish'))
 );
 
--- 17. Bảng ai_requests_log - PARTITIONED BY MONTH
+-- 17. Bảng ai_requests_log - ĐƠN GIẢN HÓA (KHÔNG DÙNG PARTITION)
 CREATE TABLE ai_requests_log (
-    id BIGSERIAL NOT NULL,
-    user_id UUID, -- ID của user từ user-service
+    id BIGSERIAL PRIMARY KEY,
+    user_id UUID,
     feature VARCHAR(50) NOT NULL,
     request_payload_summary TEXT,
     response_payload_summary TEXT,
     duration_ms INT CHECK (duration_ms >= 0),
     success BOOLEAN NOT NULL,
     error_message TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-
-    PRIMARY KEY (id, created_at)
-) PARTITION BY RANGE (created_at);
-
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 -- Tạo partitions (ví dụ cho 6 tháng)
 CREATE TABLE ai_requests_log_2025_p1 PARTITION OF ai_requests_log
     FOR VALUES FROM ('2025-01-01') TO ('2025-07-01');
@@ -350,9 +347,10 @@ CREATE INDEX idx_ai_feedback_feature ON ai_feedback(ai_feature);
 CREATE INDEX idx_ai_feedback_created_at ON ai_feedback(created_at DESC);
 
 -- === AI REQUESTS LOG INDEXES ===
-CREATE INDEX idx_ai_requests_log_user_id ON ai_requests_log(user_id, created_at DESC);
-CREATE INDEX idx_ai_requests_log_feature ON ai_requests_log(feature, created_at DESC);
-CREATE INDEX idx_ai_requests_log_success ON ai_requests_log(success, created_at DESC);
+CREATE INDEX idx_ai_requests_log_user_id ON ai_requests_log(user_id);
+CREATE INDEX idx_ai_requests_log_feature ON ai_requests_log(feature);
+CREATE INDEX idx_ai_requests_log_created_at ON ai_requests_log(created_at DESC);
+CREATE INDEX idx_ai_requests_log_success ON ai_requests_log(success);
 
 -- === NOTIFICATIONS INDEXES ===
 CREATE INDEX idx_notifications_user_id ON notifications(user_id);
