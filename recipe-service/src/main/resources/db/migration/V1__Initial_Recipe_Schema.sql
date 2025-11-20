@@ -1,5 +1,3 @@
-
-
 -- ============================================
 -- PHẦN 2: BẢNG NỘI DUNG CHÍNH (do recipe-service quản lý)
 -- ============================================
@@ -11,16 +9,15 @@ CREATE TABLE movies (
     title VARCHAR(255) NOT NULL,
     overview TEXT,
     poster_url TEXT,
-    backdrop_url TEXT, -- MỚI
+    backdrop_url TEXT,
     release_date DATE,
-    runtime INT, -- MỚI - thời lượng phim (phút)
-    vote_average NUMERIC(3,1), -- MỚI - điểm TMDB
-    vote_count INT, -- MỚI
+    runtime INT,
+    vote_average NUMERIC(3,1),
+    vote_count INT,
     genres JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 
-    -- Constraints
     CONSTRAINT check_tmdb_id CHECK (tmdb_id > 0),
     CONSTRAINT check_runtime CHECK (runtime IS NULL OR runtime > 0)
 );
@@ -28,11 +25,7 @@ CREATE TABLE movies (
 -- 6. Bảng recipes
 CREATE TABLE recipes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-
-    -- Cần bảng 'users' từ V1 của user-service, nhưng không tạo khóa ngoại
-    -- Vì đây là 2 service riêng biệt. Logic sẽ được xử lý ở tầng ứng dụng.
     author_id UUID,
-
     movie_id UUID REFERENCES movies(id) ON DELETE SET NULL,
     title VARCHAR(255) NOT NULL,
     slug VARCHAR(255) UNIQUE NOT NULL,
@@ -45,21 +38,16 @@ CREATE TABLE recipes (
     visibility VARCHAR(20) NOT NULL DEFAULT 'public',
     main_image_url TEXT,
     nutrition_info JSONB,
-
-    -- Cached counters
     avg_rating NUMERIC(3, 2) NOT NULL DEFAULT 0.00 CHECK (avg_rating >= 0 AND avg_rating <= 5),
     ratings_count INT NOT NULL DEFAULT 0 CHECK (ratings_count >= 0),
     comments_count INT NOT NULL DEFAULT 0 CHECK (comments_count >= 0),
     favorites_count INT NOT NULL DEFAULT 0 CHECK (favorites_count >= 0),
-    views_count INT NOT NULL DEFAULT 0 CHECK (views_count >= 0), -- MỚI
-
-    -- Timestamps
+    views_count INT NOT NULL DEFAULT 0 CHECK (views_count >= 0),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    published_at TIMESTAMPTZ, -- MỚI
+    published_at TIMESTAMPTZ,
     deleted_at TIMESTAMPTZ,
 
-    -- Constraints
     CONSTRAINT check_status CHECK (status IN ('draft', 'published', 'archived')),
     CONSTRAINT check_visibility CHECK (visibility IN ('public', 'private', 'unlisted')),
     CONSTRAINT check_slug_format CHECK (slug ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$')
@@ -72,7 +60,7 @@ CREATE TABLE recipe_steps (
     step_order SMALLINT NOT NULL CHECK (step_order > 0),
     instructions TEXT NOT NULL,
     image_url TEXT,
-    duration_minutes INT CHECK (duration_minutes >= 0), -- MỚI
+    duration_minutes INT CHECK (duration_minutes >= 0),
 
     UNIQUE (recipe_id, step_order)
 );
@@ -83,10 +71,9 @@ CREATE TABLE ingredients (
     name VARCHAR(100) UNIQUE NOT NULL,
     description TEXT,
     category VARCHAR(50),
-    is_allergen BOOLEAN DEFAULT FALSE, -- MỚI
+    is_allergen BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 
-    -- Constraint
     CONSTRAINT check_name_not_empty CHECK (trim(name) != '')
 );
 
@@ -98,7 +85,7 @@ CREATE TABLE recipe_ingredients (
     quantity NUMERIC(10, 2) CHECK (quantity > 0),
     unit VARCHAR(50),
     notes TEXT,
-    is_optional BOOLEAN DEFAULT FALSE, -- MỚI
+    is_optional BOOLEAN DEFAULT FALSE,
 
     UNIQUE (recipe_id, ingredient_id)
 );
@@ -111,10 +98,7 @@ CREATE TABLE recipe_ingredients (
 CREATE TABLE comments (
     id BIGSERIAL PRIMARY KEY,
     recipe_id UUID NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
-
-    -- ID của user từ user-service
     author_id UUID,
-
     parent_id BIGINT REFERENCES comments(id) ON DELETE CASCADE,
     content TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -130,12 +114,11 @@ CREATE TABLE tags (
     id SERIAL PRIMARY KEY,
     name VARCHAR(50) UNIQUE NOT NULL,
     type VARCHAR(30),
-    slug VARCHAR(50) UNIQUE NOT NULL, -- MỚI
-    description TEXT, -- MỚI
-    usage_count INT NOT NULL DEFAULT 0, -- MỚI
+    slug VARCHAR(50) UNIQUE NOT NULL,
+    description TEXT,
+    usage_count INT NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 
-    -- Constraint
     CONSTRAINT check_tag_type CHECK (type IN ('cuisine', 'dietary', 'occasion', 'difficulty', 'movie', 'theme'))
 );
 
@@ -150,7 +133,7 @@ CREATE TABLE recipe_tags (
 
 -- 13. Bảng recipe_ratings
 CREATE TABLE recipe_ratings (
-    user_id UUID NOT NULL, -- ID của user từ user-service
+    user_id UUID NOT NULL,
     recipe_id UUID NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
     rating SMALLINT NOT NULL CHECK (rating >= 1 AND rating <= 5),
     review TEXT,
@@ -162,19 +145,19 @@ CREATE TABLE recipe_ratings (
 
 -- 14. Bảng favorites (Bookmarks)
 CREATE TABLE favorites (
-    user_id UUID NOT NULL, -- ID của user từ user-service
+    user_id UUID NOT NULL,
     recipe_id UUID NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 
     PRIMARY KEY (user_id, recipe_id)
 );
 
--- 15. Bảng recipe_views (MỚI - tracking views)
+-- 15. Bảng recipe_views
 CREATE TABLE recipe_views (
     id BIGSERIAL PRIMARY KEY,
     recipe_id UUID NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
-    user_id UUID, -- ID của user từ user-service
-    ip_address INET,
+    user_id UUID,
+    ip_address TEXT, -- <-- SỬA TỪ INET THÀNH TEXT
     user_agent TEXT,
     viewed_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -193,13 +176,12 @@ CREATE TABLE ai_feedback (
     comment TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 
-    -- Constraint
     CONSTRAINT check_ai_feature CHECK (ai_feature IN ('analyze-dish', 'modify-recipe', 'create-by-theme', 'critique-dish'))
 );
 
--- 17. Bảng ai_requests_log - ĐƠN GIẢN HÓA (KHÔNG DÙNG PARTITION)
+-- 17. Bảng ai_requests_log - PARTITIONED BY MONTH
 CREATE TABLE ai_requests_log (
-    id BIGSERIAL PRIMARY KEY,
+    id BIGSERIAL NOT NULL,
     user_id UUID,
     feature VARCHAR(50) NOT NULL,
     request_payload_summary TEXT,
@@ -208,13 +190,18 @@ CREATE TABLE ai_requests_log (
     success BOOLEAN NOT NULL,
     error_message TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
+
+    -- --- SỬA LỖI: XÓA DÒNG PRIMARY KEY NÀY ---
+    -- PRIMARY KEY (id, created_at)
+
+) PARTITION BY RANGE (created_at);
+
 -- Tạo partitions (ví dụ cho 6 tháng)
+-- (Dòng 213 gây lỗi nằm ở đây)
 CREATE TABLE ai_requests_log_2025_p1 PARTITION OF ai_requests_log
     FOR VALUES FROM ('2025-01-01') TO ('2025-07-01');
 CREATE TABLE ai_requests_log_2025_p2 PARTITION OF ai_requests_log
     FOR VALUES FROM ('2025-07-01') TO ('2026-01-01');
--- (Bạn có thể thêm nhiều partition chi tiết hơn sau)
 
 -- ============================================
 -- PHẦN 5: BẢNG BỔ SUNG (do recipe-service quản lý)
@@ -223,11 +210,11 @@ CREATE TABLE ai_requests_log_2025_p2 PARTITION OF ai_requests_log
 -- 18. Bảng notifications
 CREATE TABLE notifications (
     id BIGSERIAL PRIMARY KEY,
-    user_id UUID NOT NULL, -- ID của user từ user-service
+    user_id UUID NOT NULL,
     type VARCHAR(50) NOT NULL,
     title VARCHAR(255) NOT NULL,
     content TEXT,
-    related_id UUID, -- ID của recipe/comment/user liên quan
+    related_id UUID,
     is_read BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     read_at TIMESTAMPTZ,
@@ -238,14 +225,14 @@ CREATE TABLE notifications (
 -- 19. Bảng reports (Báo cáo vi phạm)
 CREATE TABLE reports (
     id BIGSERIAL PRIMARY KEY,
-    reporter_id UUID NOT NULL, -- ID của user từ user-service
-    reported_user_id UUID, -- ID của user từ user-service
+    reporter_id UUID NOT NULL,
+    reported_user_id UUID,
     reported_recipe_id UUID REFERENCES recipes(id) ON DELETE CASCADE,
     reported_comment_id BIGINT REFERENCES comments(id) ON DELETE CASCADE,
     reason VARCHAR(50) NOT NULL,
     description TEXT,
     status VARCHAR(20) NOT NULL DEFAULT 'pending',
-    resolved_by UUID, -- ID của admin/mod từ user-service
+    resolved_by UUID,
     resolved_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 
@@ -261,19 +248,20 @@ CREATE TABLE reports (
 -- 20. Bảng audit_logs
 CREATE TABLE audit_logs (
     id BIGSERIAL PRIMARY KEY,
-    user_id UUID, -- ID của user từ user-service
+    user_id UUID,
     action VARCHAR(50) NOT NULL,
     entity_type VARCHAR(50) NOT NULL,
     entity_id TEXT NOT NULL,
     old_values JSONB,
     new_values JSONB,
-    ip_address INET,
+    ip_address TEXT, -- <-- SỬA TỪ INET THÀNH TEXT
     user_agent TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- ============================================
 -- PHẦN 6: INDEXES (cho recipe-service)
+-- (Không có thay đổi)
 -- ============================================
 
 -- === MOVIES INDEXES ===
@@ -347,10 +335,9 @@ CREATE INDEX idx_ai_feedback_feature ON ai_feedback(ai_feature);
 CREATE INDEX idx_ai_feedback_created_at ON ai_feedback(created_at DESC);
 
 -- === AI REQUESTS LOG INDEXES ===
-CREATE INDEX idx_ai_requests_log_user_id ON ai_requests_log(user_id);
-CREATE INDEX idx_ai_requests_log_feature ON ai_requests_log(feature);
-CREATE INDEX idx_ai_requests_log_created_at ON ai_requests_log(created_at DESC);
-CREATE INDEX idx_ai_requests_log_success ON ai_requests_log(success);
+CREATE INDEX idx_ai_requests_log_user_id ON ai_requests_log(user_id, created_at DESC);
+CREATE INDEX idx_ai_requests_log_feature ON ai_requests_log(feature, created_at DESC);
+CREATE INDEX idx_ai_requests_log_success ON ai_requests_log(success, created_at DESC);
 
 -- === NOTIFICATIONS INDEXES ===
 CREATE INDEX idx_notifications_user_id ON notifications(user_id);
@@ -369,6 +356,7 @@ CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at DESC);
 
 -- ============================================
 -- PHẦN 7: FUNCTIONS & TRIGGERS (cho recipe-service)
+-- (Không có thay đổi)
 -- ============================================
 
 -- Function: Tự động cập nhật updated_at

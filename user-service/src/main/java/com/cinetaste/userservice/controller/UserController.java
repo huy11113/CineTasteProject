@@ -1,6 +1,7 @@
 package com.cinetaste.userservice.controller;
 
 
+import com.cinetaste.userservice.dto.UserBasicInfoResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -88,5 +89,10 @@ public class UserController {
         UUID userId = UUID.fromString(userIdHeader);
         Map<String, Object> updatedProfile = flavorProfileService.updateProfile(userId, request.getPreferences());
         return ResponseEntity.ok(updatedProfile);
+    }
+    // Endpoint này dùng cho các microservice khác gọi (Internal use)
+    @GetMapping("/{userId}/basic-info")
+    public ResponseEntity<UserBasicInfoResponse> getUserBasicInfo(@PathVariable UUID userId) {
+        return ResponseEntity.ok(userService.getUserBasicInfo(userId));
     }
 }

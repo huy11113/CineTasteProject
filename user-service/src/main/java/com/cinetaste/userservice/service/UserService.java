@@ -2,6 +2,7 @@ package com.cinetaste.userservice.service;
 
 
 import com.cinetaste.userservice.dto.RegisterRequest;
+import com.cinetaste.userservice.dto.UserBasicInfoResponse;
 import com.cinetaste.userservice.entity.User;
 import com.cinetaste.userservice.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -67,6 +68,17 @@ public class UserService {
         Optional.ofNullable(request.getProfileImageUrl()).ifPresent(currentUser::setProfileImageUrl);
 
         return userRepository.save(currentUser);
+    }
+    public UserBasicInfoResponse getUserBasicInfo(UUID userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        return UserBasicInfoResponse.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .displayName(user.getDisplayName())
+                .profileImageUrl(user.getProfileImageUrl())
+                .build();
     }
 
 }

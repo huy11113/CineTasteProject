@@ -5,7 +5,8 @@ import lombok.Data;
 import java.math.BigDecimal; // <-- Import quan trọng
 import java.time.LocalDate; // <-- Import quan trọng
 import java.util.UUID;
-
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 @Data
 @Entity
 @Table(name = "movies")
@@ -41,7 +42,7 @@ public class Movie {
     @Column(name = "release_date") // <-- Đảm bảo trường này tồn tại
     private LocalDate releaseDate;
     // --- KẾT THÚC TRƯỜNG MỚI ---
-
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     private String genres;
 

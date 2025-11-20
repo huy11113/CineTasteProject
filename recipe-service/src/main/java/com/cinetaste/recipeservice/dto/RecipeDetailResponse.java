@@ -8,7 +8,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-
+import java.io.Serializable;
 @Data
 @Builder
 public class RecipeDetailResponse {
@@ -40,7 +40,7 @@ public class RecipeDetailResponse {
     // DTO con cho Tác giả
     @Data
     @Builder
-    public static class AuthorDto {
+    public static class AuthorDto implements Serializable {
         private UUID id;
         private String name;
         private String avatarUrl;
@@ -49,7 +49,7 @@ public class RecipeDetailResponse {
     // DTO con cho Phim
     @Data
     @Builder
-    public static class MovieDto {
+    public static class MovieDto implements Serializable {
         private String title;
         private Integer year;
         private String posterUrl;

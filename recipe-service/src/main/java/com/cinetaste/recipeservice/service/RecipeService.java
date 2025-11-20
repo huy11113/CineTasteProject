@@ -1,31 +1,33 @@
 package com.cinetaste.recipeservice.service;
 
+import com.cinetaste.recipeservice.client.TmdbClient;
+import com.cinetaste.recipeservice.client.UserClient;
 import com.cinetaste.recipeservice.dto.*;
 import com.cinetaste.recipeservice.dto.ai.AnalyzeDishResponse;
+import com.cinetaste.recipeservice.dto.client.UserBasicInfo;
+import com.cinetaste.recipeservice.dto.tmdb.TmdbMovieResult;
 import com.cinetaste.recipeservice.entity.*;
 import com.cinetaste.recipeservice.repository.*;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import com.cinetaste.recipeservice.repository.CommentRepository;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.context.annotation.Lazy;
-import java.util.Optional;
-import org.springframework.security.access.AccessDeniedException;
-import org.springframework.web.multipart.MultipartFile;
-import reactor.core.publisher.Mono;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
 import java.text.Normalizer;
-import java.time.Instant; // <-- THÊM IMPORT ĐÃ THIẾU (Sửa Lỗi 4)
-import java.util.Collections;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.UUID;
+import java.time.Instant;
+import java.util.*;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -33,18 +35,33 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class RecipeService {
 
+    // --- 1. REPOSITORIES ---
     private final RecipeRepository recipeRepository;
     private final RecipeRatingRepository ratingRepository;
     private final CommentRepository commentRepository;
     private final AiRequestsLogRepository logRepository;
-    private final @Lazy AiClientService aiClientService;
+    private final MovieRepository movieRepository; // Mới: Cho TMDB
+
+    // --- 2. EXTERNAL CLIENTS ---
+    @Lazy
+    private final AiClientService aiClientService;
+    private final UserClient userClient;   // Mới: Lấy info user thật
+    private final TmdbClient tmdbClient;   // Mới: Lấy info phim thật
+
+    // --- 3. UTILS & CONFIG ---
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    @Value("${tmdb.image.base-url}")
+    private String imageBaseUrl;
 
     private static final Pattern NONLATIN = Pattern.compile("[^\\w-]");
     private static final Pattern WHITESPACE = Pattern.compile("[\\s]");
 
-    // (Hàm createRecipe không đổi)
+    // =========================================================================
+    // 1. CREATE (Tạo mới) - Có tích hợp TMDB & Xóa Cache
+    // =========================================================================
     @Transactional
+    @CacheEvict(value = "recipes", allEntries = true) // Xóa cache danh sách khi có bài mới
     public Recipe createRecipe(CreateRecipeRequest request, UUID authorId) {
         Recipe newRecipe = new Recipe();
         newRecipe.setTitle(request.getTitle());
@@ -56,11 +73,44 @@ public class RecipeService {
         newRecipe.setMainImageUrl(request.getMainImageUrl());
         newRecipe.setAuthorId(authorId);
         newRecipe.setSlug(generateSlug(request.getTitle()));
-        // TODO: Cần thêm logic để lưu steps và ingredients từ request
+
+        // --- LOGIC TÌM PHIM TỪ TMDB ---
+        if (request.getMovieName() != null && !request.getMovieName().isEmpty()) {
+            TmdbMovieResult tmdbResult = tmdbClient.searchMovie(request.getMovieName());
+
+            if (tmdbResult != null) {
+                // Tìm trong DB xem có chưa, chưa có thì tạo mới
+                Movie movie = movieRepository.findByTmdbId(tmdbResult.getId())
+                        .orElseGet(() -> {
+                            Movie newMovie = new Movie();
+                            newMovie.setTmdbId(tmdbResult.getId());
+                            newMovie.setTitle(tmdbResult.getTitle());
+                            newMovie.setOverview(tmdbResult.getOverview());
+
+                            if (tmdbResult.getPosterPath() != null) {
+                                newMovie.setPosterUrl(imageBaseUrl + tmdbResult.getPosterPath());
+                            }
+                            if (tmdbResult.getBackdropPath() != null) {
+                                newMovie.setBackdropUrl(imageBaseUrl + tmdbResult.getBackdropPath());
+                            }
+
+                            newMovie.setReleaseDate(tmdbResult.getReleaseDate());
+                            if (tmdbResult.getVoteAverage() != null) {
+                                newMovie.setVoteAverage(BigDecimal.valueOf(tmdbResult.getVoteAverage()));
+                            }
+                            newMovie.setVoteCount(tmdbResult.getVoteCount());
+
+                            return movieRepository.save(newMovie);
+                        });
+
+                newRecipe.setMovie(movie);
+            }
+        }
+        // ------------------------------
+
         return recipeRepository.save(newRecipe);
     }
 
-    // (Hàm generateSlug không đổi)
     private String generateSlug(String input) {
         String nowhitespace = WHITESPACE.matcher(input).replaceAll("-");
         String normalized = Normalizer.normalize(nowhitespace, Normalizer.Form.NFD);
@@ -68,13 +118,16 @@ public class RecipeService {
         return slug.toLowerCase(Locale.ENGLISH) + "-" + System.currentTimeMillis();
     }
 
-    // (Hàm getAllRecipes không đổi)
+    // =========================================================================
+    // 2. READ (Đọc) - Có Caching Redis & Gọi User Service
+    // =========================================================================
+
+    @Cacheable(value = "recipes", key = "#pageable.pageNumber + '-' + #pageable.pageSize")
     public Page<RecipeResponse> getAllRecipes(Pageable pageable) {
         return recipeRepository.findAll(pageable)
                 .map(this::mapToRecipeResponse);
     }
 
-    // (Hàm mapToRecipeResponse tóm tắt - giữ nguyên)
     private RecipeResponse mapToRecipeResponse(Recipe recipe) {
         return RecipeResponse.builder()
                 .id(recipe.getId())
@@ -90,29 +143,29 @@ public class RecipeService {
                 .avgRating(recipe.getAvgRating())
                 .createdAt(recipe.getCreatedAt())
                 .ratingsCount(recipe.getRatingsCount())
-                .movieTitle(recipe.getMovie() != null ? recipe.getMovie().getTitle() : null) // <-- Sửa lỗi NullPointer
+                .movieTitle(recipe.getMovie() != null ? recipe.getMovie().getTitle() : null)
                 .build();
     }
 
-    // --- HÀM MỚI (trả về chi tiết) ---
+    @Cacheable(value = "recipe_details", key = "#recipeId")
     public RecipeDetailResponse getRecipeDetailById(UUID recipeId) {
         Recipe recipe = recipeRepository.findById(recipeId)
                 .orElseThrow(() -> new RuntimeException("Recipe not found with id: " + recipeId));
 
-        // TODO: Trong tương lai, bạn sẽ gọi User-Service bằng WebClient để lấy thông tin tác giả thật
-        // Tạm thời hardcode
+        // --- GỌI USER SERVICE LẤY INFO TÁC GIẢ ---
+        UserBasicInfo authorInfo = userClient.getUserById(recipe.getAuthorId());
+
         RecipeDetailResponse.AuthorDto author = RecipeDetailResponse.AuthorDto.builder()
                 .id(recipe.getAuthorId())
-                .name("Chef Auguste (Tạm)") // Tên hardcode
-                .avatarUrl("https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=200") // Ảnh hardcode
+                .name(authorInfo != null ? authorInfo.getDisplayName() : "Unknown Chef")
+                .avatarUrl(authorInfo != null ? authorInfo.getProfileImageUrl() : null)
                 .build();
+        // -----------------------------------------
 
-        // Lấy thông tin phim
         RecipeDetailResponse.MovieDto movie = null;
         if (recipe.getMovie() != null) {
             movie = RecipeDetailResponse.MovieDto.builder()
                     .title(recipe.getMovie().getTitle())
-                    // Sửa lỗi 2: Dùng getter của Lombok
                     .year(recipe.getMovie().getReleaseDate() != null ? recipe.getMovie().getReleaseDate().getYear() : null)
                     .posterUrl(recipe.getMovie().getPosterUrl())
                     .build();
@@ -121,15 +174,11 @@ public class RecipeService {
         return mapToRecipeDetailResponse(recipe, author, movie);
     }
 
-    // --- HÀM HELPER MỚI: Map sang DTO chi tiết ---
     private RecipeDetailResponse mapToRecipeDetailResponse(Recipe recipe, RecipeDetailResponse.AuthorDto author, RecipeDetailResponse.MovieDto movie) {
-
-        // Chuyển đổi danh sách Ingredients
         List<RecipeIngredientDto> ingredientDtos = recipe.getIngredients().stream()
                 .map(ing -> {
                     String quantity = (ing.getQuantity() != null) ? ing.getQuantity().stripTrailingZeros().toPlainString() : "";
                     String unit = (ing.getUnit() != null) ? ing.getUnit() : "";
-
                     return RecipeIngredientDto.builder()
                             .name(ing.getIngredient().getName())
                             .quantityUnit(String.format("%s %s", quantity, unit).trim())
@@ -138,23 +187,21 @@ public class RecipeService {
                 })
                 .collect(Collectors.toList());
 
-        // Chuyển đổi danh sách Steps
         List<RecipeStepDto> stepDtos = recipe.getSteps().stream()
                 .map(step -> RecipeStepDto.builder()
                         .step(step.getStepOrder())
-                        .title("Bước " + step.getStepOrder()) // CSDL mới chưa có title, ta tự tạo
+                        .title("Bước " + step.getStepOrder())
                         .description(step.getInstructions())
                         .imageUrl(step.getImageUrl())
                         .build())
                 .collect(Collectors.toList());
 
-        // Chuyển đổi Nutrition Info (JSON string sang Map)
         Map<String, String> nutritionMap = Collections.emptyMap();
         if (recipe.getNutritionInfo() != null && !recipe.getNutritionInfo().isEmpty()) {
             try {
                 nutritionMap = objectMapper.readValue(recipe.getNutritionInfo(), new TypeReference<Map<String, String>>() {});
             } catch (Exception e) {
-                // Bỏ qua nếu JSON lỗi
+                // Ignore error
             }
         }
 
@@ -179,6 +226,52 @@ public class RecipeService {
                 .build();
     }
 
+    // =========================================================================
+    // 3. UPDATE & DELETE - Xóa Cache liên quan
+    // =========================================================================
+
+    @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "recipes", allEntries = true),
+            @CacheEvict(value = "recipe_details", key = "#recipeId")
+    })
+    public RecipeResponse updateRecipe(UUID recipeId, UUID currentUserId, UpdateRecipeRequest request) {
+        Recipe recipe = recipeRepository.findById(recipeId)
+                .orElseThrow(() -> new RuntimeException("Recipe not found with id: " + recipeId));
+        if (!recipe.getAuthorId().equals(currentUserId)) {
+            throw new AccessDeniedException("You do not have permission to edit this recipe.");
+        }
+        Optional.ofNullable(request.getTitle()).ifPresent(recipe::setTitle);
+        Optional.ofNullable(request.getSummary()).ifPresent(recipe::setSummary);
+        Optional.ofNullable(request.getDifficulty()).ifPresent(recipe::setDifficulty);
+        Optional.ofNullable(request.getPrepTimeMinutes()).ifPresent(recipe::setPrepTimeMinutes);
+        Optional.ofNullable(request.getCookTimeMinutes()).ifPresent(recipe::setCookTimeMinutes);
+        Optional.ofNullable(request.getServings()).ifPresent(recipe::setServings);
+        Optional.ofNullable(request.getMainImageUrl()).ifPresent(recipe::setMainImageUrl);
+
+        Recipe updatedRecipe = recipeRepository.save(recipe);
+        return mapToRecipeResponse(updatedRecipe);
+    }
+
+    @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "recipes", allEntries = true),
+            @CacheEvict(value = "recipe_details", key = "#recipeId")
+    })
+    public void deleteRecipe(UUID recipeId, UUID currentUserId) {
+        Recipe recipe = recipeRepository.findById(recipeId)
+                .orElseThrow(() -> new RuntimeException("Recipe not found with id: " + recipeId));
+        if (!recipe.getAuthorId().equals(currentUserId)) {
+            throw new AccessDeniedException("You do not have permission to delete this recipe.");
+        }
+        recipe.setDeletedAt(Instant.now());
+        recipeRepository.save(recipe);
+    }
+
+    // =========================================================================
+    // 4. INTERACTION (Rating, Comment)
+    // =========================================================================
+
     @Transactional
     public void rateRecipe(UUID recipeId, RateRecipeRequest request, UUID userId) {
         Recipe recipe = recipeRepository.findById(recipeId)
@@ -195,13 +288,10 @@ public class RecipeService {
         rating.setReview(request.getReview());
 
         ratingRepository.save(rating);
-        // Tạm thời gọi hàm này, mặc dù CSDL đã có trigger
         updateRecipeAverageRating(recipe);
     }
 
-    // Cần hàm này để lấy List<RecipeRating>
     private void updateRecipeAverageRating(Recipe recipe) {
-        // Phải gọi qua repo để lấy list ratings mới nhất
         List<RecipeRating> ratings = ratingRepository.findByRecipeId(recipe.getId());
         if (ratings == null || ratings.isEmpty()) {
             recipe.setAvgRating(BigDecimal.ZERO);
@@ -237,7 +327,6 @@ public class RecipeService {
         return mapToCommentResponse(savedComment);
     }
 
-    // Cần hàm này để lấy count
     private void updateRecipeCommentsCount(Recipe recipe) {
         long count = commentRepository.countByRecipeIdAndDeletedAtIsNull(recipe.getId());
         recipe.setCommentsCount((int) count);
@@ -248,7 +337,6 @@ public class RecipeService {
         if (!recipeRepository.existsById(recipeId)) {
             throw new RuntimeException("Recipe not found with id: " + recipeId);
         }
-        // Đảm bảo chỉ lấy comment chưa bị xóa
         return commentRepository.findByRecipeIdAndDeletedAtIsNullOrderByCreatedAtDesc(recipeId)
                 .stream()
                 .map(this::mapToCommentResponse)
@@ -265,36 +353,9 @@ public class RecipeService {
                 .build();
     }
 
-    @Transactional
-    public RecipeResponse updateRecipe(UUID recipeId, UUID currentUserId, UpdateRecipeRequest request) {
-        Recipe recipe = recipeRepository.findById(recipeId)
-                .orElseThrow(() -> new RuntimeException("Recipe not found with id: " + recipeId));
-        if (!recipe.getAuthorId().equals(currentUserId)) {
-            throw new AccessDeniedException("You do not have permission to edit this recipe.");
-        }
-        Optional.ofNullable(request.getTitle()).ifPresent(recipe::setTitle);
-        Optional.ofNullable(request.getSummary()).ifPresent(recipe::setSummary);
-        Optional.ofNullable(request.getDifficulty()).ifPresent(recipe::setDifficulty);
-        Optional.ofNullable(request.getPrepTimeMinutes()).ifPresent(recipe::setPrepTimeMinutes);
-        Optional.ofNullable(request.getCookTimeMinutes()).ifPresent(recipe::setCookTimeMinutes);
-        Optional.ofNullable(request.getServings()).ifPresent(recipe::setServings);
-        Optional.ofNullable(request.getMainImageUrl()).ifPresent(recipe::setMainImageUrl);
-
-        Recipe updatedRecipe = recipeRepository.save(recipe);
-        return mapToRecipeResponse(updatedRecipe);
-    }
-
-    @Transactional
-    public void deleteRecipe(UUID recipeId, UUID currentUserId) {
-        Recipe recipe = recipeRepository.findById(recipeId)
-                .orElseThrow(() -> new RuntimeException("Recipe not found with id: " + recipeId));
-        if (!recipe.getAuthorId().equals(currentUserId)) {
-            throw new AccessDeniedException("You do not have permission to delete this recipe.");
-        }
-        // Sửa lỗi 4: Dùng Instant.now()
-        recipe.setDeletedAt(Instant.now());
-        recipeRepository.save(recipe);
-    }
+    // =========================================================================
+    // 5. AI ANALYSIS
+    // =========================================================================
 
     public Mono<AnalyzeDishResponse> analyzeDishAndLog(MultipartFile image, String context, UUID userId) {
         long startTime = System.currentTimeMillis();

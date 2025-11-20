@@ -7,10 +7,10 @@ import lombok.Data;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
-
+import java.io.Serializable;
 @Data
 @Builder
-public class RecipeResponse {
+public class RecipeResponse implements Serializable {
     private UUID id;
     private UUID authorId;
     private String title;
@@ -25,4 +25,5 @@ public class RecipeResponse {
     private Instant createdAt;
     private String movieTitle;
     private Integer ratingsCount;
+    private static final long serialVersionUID = 1L;
 }
