@@ -6,12 +6,11 @@ Main FastAPI application - Full Version với tất cả features
 import os
 from functools import lru_cache
 from contextlib import asynccontextmanager
-
-from fastapi import FastAPI, UploadFile, File, HTTPException, Form
+from fastapi import FastAPI, UploadFile, File, HTTPException, Form, Request
 from fastapi.responses import JSONResponse
 from typing import Optional
 import google.generativeai as genai
-
+from config import AIConfig
 # Import all services
 from services.analyze_dish import analyze_dish_from_image, AnalyzeDishResponse
 from services.modify_recipe import (
@@ -19,6 +18,15 @@ from services.modify_recipe import (
     ModifyRecipeRequest,
     ModifyRecipeResponse
 )
+from services.analyze_dish import (
+    analyze_dish_from_image,
+    AnalyzeDishResponse,
+    FileValidationError,
+    SafetyBlockError,
+    ValidationError,
+    APIError
+)
+app = FastAPI(title="CineTaste AI Service")
 from services.create_by_theme import (
     create_by_theme,
     CreateByThemeRequest,
@@ -30,15 +38,48 @@ from services.critique_dish import (
     CritiqueDishResponse
 )
 
+
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
 
-GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
-if not GOOGLE_API_KEY:
-    raise ValueError("Vui lòng thiết lập GOOGLE_API_KEY trong file .env")
+genai.configure(api_key=AIConfig.GOOGLE_API_KEY)
 
-genai.configure(api_key=GOOGLE_API_KEY)
+# --- MODEL MANAGER ---
+class ModelManager:
+    _models = {}
+
+    @classmethod
+    def get_model(cls, model_name: str):
+        """Lấy model từ cache hoặc khởi tạo mới"""
+        if model_name not in cls._models:
+            print(f"[*] Initializing model: {model_name}")
+            cls._models[model_name] = genai.GenerativeModel(model_name)
+        return cls._models[model_name]
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Khởi động và warmup models"""
+    print("[*] Warming up AI models...")
+    models_to_load = [AIConfig.MODEL_FAST, AIConfig.MODEL_SMART]
+
+    for name in models_to_load:
+        try:
+            ModelManager.get_model(name)
+            print(f"✅ Loaded {name}")
+        except Exception as e:
+            print(f"⚠️ Failed to load {name}: {e}")
+
+    yield
+    print("[*] Shutting down AI service...")
+    ModelManager._models.clear()
+
+# Khởi tạo App
+app = FastAPI(
+    title="CineTaste - AI Service",
+    version="6.1.0",
+    lifespan=lifespan
+)
 
 # ============================================================================
 # MODEL CACHING & WARMUP
@@ -77,21 +118,62 @@ app = FastAPI(
 # ============================================================================
 # EXCEPTION HANDLERS
 # ============================================================================
+app = FastAPI(title="CineTaste AI Service")
 
-@app.exception_handler(ValueError)
-async def value_error_handler(request, exc):
+# --- EXCEPTION HANDLERS (QUAN TRỌNG) ---
+
+@app.exception_handler(FileValidationError)
+async def file_validation_handler(request: Request, exc: FileValidationError):
     return JSONResponse(
         status_code=400,
-        content={"error": "Validation Error", "detail": str(exc)}
+        content={"error": "Invalid File", "detail": str(exc)}
     )
 
-@app.exception_handler(RuntimeError)
-async def runtime_error_handler(request, exc):
+@app.exception_handler(SafetyBlockError)
+async def safety_handler(request: Request, exc: SafetyBlockError):
     return JSONResponse(
-        status_code=500,
-        content={"error": "AI Processing Error", "detail": str(exc)}
+        status_code=422, # Unprocessable Entity
+        content={"error": "Safety Violation", "detail": str(exc)}
     )
 
+@app.exception_handler(ValidationError)
+async def data_validation_handler(request: Request, exc: ValidationError):
+    return JSONResponse(
+        status_code=422,
+        content={"error": "Response Validation Failed", "detail": str(exc)}
+    )
+
+@app.exception_handler(APIError)
+async def api_error_handler(request: Request, exc: APIError):
+    # Nếu lỗi retryable (timeout, mạng), trả về 503
+    # Nếu lỗi code logic, trả về 500
+    status = 503 if exc.retryable else 500
+    return JSONResponse(
+        status_code=status,
+        content={"error": "AI Provider Error", "detail": str(exc)}
+    )
+
+# --- ENDPOINT ---
+
+@app.post("/api/ai/analyze-dish", response_model=AnalyzeDishResponse)
+async def analyze_dish_endpoint(
+        image: UploadFile = File(...),
+        context: Optional[str] = Form(None)
+):
+    """
+    Endpoint phân tích món ăn sử dụng Logic Cải tiến (Retry, Pydantic, etc.)
+    """
+    # Đọc file bytes
+    file_data = await image.read()
+
+    # Gọi service (Không cần callback trong HTTP request thông thường)
+    result = await analyze_dish_from_image(
+        file_data=file_data,
+        mime_type=image.content_type,
+        context=context
+    )
+
+    return result
 # ============================================================================
 # HEALTH CHECK
 # ============================================================================
