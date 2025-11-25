@@ -1,7 +1,8 @@
 fastapi
 uvicorn[standard]
-gunicorn # <--- THÊM DÒNG NÀY
+gunicorn
 python-dotenv
 google-generativeai
 Pillow
 python-multipart
+pydantic>=2.0  # IMPORTANT: Cần version 2.x
