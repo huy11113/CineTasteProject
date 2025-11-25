@@ -55,7 +55,8 @@ async def lifespan(app: FastAPI):
     """Warm-up models khi service khởi động"""
     print("[*] Warming up AI models...")
     try:
-        get_model('gemini-2.0-flash-exp')
+        get_model('gemini-2.5-flash')
+        get_model('gemini-1.5-pro')
         print("✅ AI models pre-loaded successfully.")
     except Exception as e:
         print(f"⚠️ Model pre-load warning: {e}")

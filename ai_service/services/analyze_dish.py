@@ -1,22 +1,21 @@
 """
 ai_service/services/analyze_dish.py
-Phiên bản nâng cấp từ geminiService.ts với các cải tiến:
-- Validation chặt chẽ hơn
-- Error handling tốt hơn
-- Response schema đầy đủ hơn
-- Logging chi tiết
+FIXED VERSION - Sử dụng ImageValidator từ file riêng
 """
 
 import os
-import io
 import json
 import logging
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 
-from PIL import Image
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field
 import google.generativeai as genai
+
+# ============================================================================
+# IMPORT IMAGE VALIDATOR TỪ FILE RIÊNG
+# ============================================================================
+from .image_validator import ImageValidator
 
 # ============================================================================
 # CONFIGURATION & CONSTANTS
@@ -24,10 +23,6 @@ import google.generativeai as genai
 
 API_KEY = os.getenv('GOOGLE_API_KEY')
 MAX_RETRIES = 3
-MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
-ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp']
-MIN_REQUEST_INTERVAL = 1.0  # seconds
-MAX_IMAGE_DIMENSION = 2048
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -91,51 +86,7 @@ class AnalyzeDishResponse(BaseModel):
     tips: List[str] = Field(default_factory=list, max_items=10)
 
 # ============================================================================
-# VALIDATION & IMAGE PROCESSING
-# ============================================================================
-
-class ImageValidator:
-    @staticmethod
-    def validate_file(file_data: bytes, mime_type: str) -> None:
-        """Validate uploaded file"""
-        if not file_data:
-            raise ValueError("Không có dữ liệu file được cung cấp")
-
-        if len(file_data) > MAX_FILE_SIZE:
-            raise ValueError(f"File quá lớn. Kích thước tối đa là {MAX_FILE_SIZE / 1024 / 1024}MB")
-
-        if mime_type not in ALLOWED_MIME_TYPES:
-            raise ValueError(f"Định dạng file không được hỗ trợ. Chỉ chấp nhận: {', '.join(ALLOWED_MIME_TYPES)}")
-
-        logger.info(f"File validation passed - Size: {len(file_data) / 1024:.2f}KB, Type: {mime_type}")
-
-    @staticmethod
-    def optimize_image(file_data: bytes, max_dimension: int = MAX_IMAGE_DIMENSION) -> Image.Image:
-        """Optimize image for AI processing"""
-        try:
-            pil_image = Image.open(io.BytesIO(file_data))
-
-            # Convert to RGB if needed
-            if pil_image.mode not in ('RGB', 'RGBA'):
-                pil_image = pil_image.convert('RGB')
-            elif pil_image.mode == 'RGBA':
-                background = Image.new('RGB', pil_image.size, (255, 255, 255))
-                background.paste(pil_image, mask=pil_image.split()[3])
-                pil_image = background
-
-            # Resize if too large
-            original_size = pil_image.size
-            if max(original_size) > max_dimension:
-                pil_image.thumbnail((max_dimension, max_dimension), Image.Resampling.LANCZOS)
-                logger.info(f"Resized image from {original_size} to {pil_image.size}")
-
-            return pil_image
-        except Exception as e:
-            logger.error(f"Error optimizing image: {str(e)}")
-            raise ValueError(f"Không thể xử lý ảnh: {str(e)}")
-
-# ============================================================================
-# SYSTEM INSTRUCTION (Enhanced from geminiService.ts)
+# SYSTEM INSTRUCTION
 # ============================================================================
 
 SYSTEM_INSTRUCTION = """
@@ -316,7 +267,7 @@ THÔNG TIN TỪ NGƯỜI DÙNG:
 
     # Initialize model
     model = genai.GenerativeModel(
-        model_name='gemini-2.0-flash-exp',
+        model_name='gemini-2.5-pro',
         generation_config={
             "response_mime_type": "application/json",
             "response_schema": get_response_schema(),

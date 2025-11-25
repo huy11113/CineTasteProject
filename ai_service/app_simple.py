@@ -65,7 +65,7 @@ async def test_json(image: UploadFile = File(...)):
         }
 
         model = genai.GenerativeModel(
-            model_name='gemini-2.0-flash-exp',
+            model_name='gemini-2.5-flash',
             generation_config={
                 "response_mime_type": "application/json",
                 "response_schema": schema

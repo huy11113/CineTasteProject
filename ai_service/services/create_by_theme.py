@@ -265,7 +265,7 @@ thông tin phim (nếu có), dinh dưỡng, công thức chi tiết, và tips n�
 
     # Initialize model
     model = genai.GenerativeModel(
-        model_name='gemini-2.0-flash-exp',
+        model_name='gemini-2.5-pro',
         generation_config={
             "response_mime_type": "application/json",
             "response_schema": get_response_schema(),

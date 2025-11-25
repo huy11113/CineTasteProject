@@ -182,7 +182,7 @@ Hãy trả về JSON với công thức đã được điều chỉnh và giải
 
     # Initialize model
     model = genai.GenerativeModel(
-        model_name='gemini-2.0-flash-exp',
+        model_name='gemini-2.5-flash',
         generation_config={
             "response_mime_type": "application/json",
             "response_schema": get_response_schema(),

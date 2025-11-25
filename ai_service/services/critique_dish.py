@@ -1,60 +1,21 @@
 """
 ai_service/services/critique_dish.py
-Nhận xét, chấm điểm và đưa ra gợi ý cải thiện món ăn
+FIXED VERSION - Import ImageValidator từ file riêng
 """
 
-import os
-import io
 import logging
 from typing import List, Dict, Any
 from datetime import datetime
 
-from PIL import Image
 from pydantic import BaseModel, Field, validator
 import google.generativeai as genai
 
+# ============================================================================
+# IMPORT IMAGE VALIDATOR TỪ FILE RIÊNG
+# ============================================================================
+from .image_validator import ImageValidator
+
 logger = logging.getLogger(__name__)
-
-# REMOVED: from .analyze_dish import ImageValidator
-# Copy ImageValidator class directly to avoid circular import
-
-# ============================================================================
-# IMAGE VALIDATION (Copied to avoid circular import)
-# ============================================================================
-
-MAX_FILE_SIZE = 10 * 1024 * 1024
-ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp']
-MAX_IMAGE_DIMENSION = 2048
-
-class ImageValidator:
-    @staticmethod
-    def validate_file(file_data: bytes, mime_type: str) -> None:
-        if not file_data:
-            raise ValueError("Không có dữ liệu file được cung cấp")
-        if len(file_data) > MAX_FILE_SIZE:
-            raise ValueError(f"File quá lớn. Kích thước tối đa là {MAX_FILE_SIZE / 1024 / 1024}MB")
-        if mime_type not in ALLOWED_MIME_TYPES:
-            raise ValueError(f"Định dạng file không được hỗ trợ. Chỉ chấp nhận: {', '.join(ALLOWED_MIME_TYPES)}")
-        logger.info(f"File validation passed - Size: {len(file_data) / 1024:.2f}KB, Type: {mime_type}")
-
-    @staticmethod
-    def optimize_image(file_data: bytes, max_dimension: int = MAX_IMAGE_DIMENSION) -> Image.Image:
-        try:
-            pil_image = Image.open(io.BytesIO(file_data))
-            if pil_image.mode not in ('RGB', 'RGBA'):
-                pil_image = pil_image.convert('RGB')
-            elif pil_image.mode == 'RGBA':
-                background = Image.new('RGB', pil_image.size, (255, 255, 255))
-                background.paste(pil_image, mask=pil_image.split()[3])
-                pil_image = background
-            original_size = pil_image.size
-            if max(original_size) > max_dimension:
-                pil_image.thumbnail((max_dimension, max_dimension), Image.Resampling.LANCZOS)
-                logger.info(f"Resized image from {original_size} to {pil_image.size}")
-            return pil_image
-        except Exception as e:
-            logger.error(f"Error optimizing image: {str(e)}")
-            raise ValueError(f"Không thể xử lý ảnh: {str(e)}")
 
 # ============================================================================
 # PYDANTIC MODELS
@@ -234,7 +195,7 @@ Giữ tone thân thiện, động viên!
 
     # Initialize model
     model = genai.GenerativeModel(
-        model_name='gemini-2.0-flash-exp',
+        model_name='gemini-2.5-flash',
         generation_config={
             "response_mime_type": "application/json",
             "response_schema": get_response_schema(),
