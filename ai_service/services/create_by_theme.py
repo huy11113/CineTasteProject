@@ -1,12 +1,14 @@
 """
 ai_service/services/create_by_theme.py
-Creative Chef - Sáng tạo món ăn với phong cách kể chuyện điện ảnh
-(Phiên bản đầy đủ từ creative_chef.py)
+Creative Chef - Cinematic Storytelling Recipe Generator
+(Updated: 8 New Personas - Optimized for Frontend)
 """
 
 import logging
 import os
 import json
+import re
+import asyncio
 from typing import Dict, Any, List
 from datetime import datetime
 from enum import Enum
@@ -14,12 +16,14 @@ from enum import Enum
 from pydantic import BaseModel, Field, validator
 import google.generativeai as genai
 
-# --- CẤU HÌNH API KEY (Thêm phần này để code chạy được) ---
+# --- CẤU HÌNH API KEY ---
 try:
     from ..config import AIConfig
     API_KEY = AIConfig.GOOGLE_API_KEY
+    MODEL_NAME = getattr(AIConfig, 'MODEL_SMART', 'gemini-2.5-flash')
 except ImportError:
     API_KEY = os.getenv('GOOGLE_API_KEY')
+    MODEL_NAME = 'gemini-2.5-flash'
 
 if API_KEY:
     genai.configure(api_key=API_KEY)
@@ -27,25 +31,26 @@ if API_KEY:
 logger = logging.getLogger(__name__)
 
 # ============================================================================
-# ENUMS
+# 1. ENUMS (CHUẨN HÓA THEO FRONTEND MỚI)
 # ============================================================================
 
 class NarrativeStyle(str, Enum):
-    COMIC_MODE = "Comic Mode"
-    MYSTIC_WHISPER = "Mystic Whisper"
-    ACTION_RUSH = "Action Rush"
-    GHIBLI_SOFT_DREAM = "Ghibli Soft Dream"
-    CYBERPUNK_LOGIC = "Cyberpunk Logic"
-    ROMANCE_MOOD = "Romance Mood"
-    DRAMA_DEEP = "Drama Deep"
+    COMIC_MODE = "Comic Mode"           # Hài hước
+    ACTION_RUSH = "Action Rush"         # Hành động
+    ROMANCE_MOOD = "Romance Mood"       # Lãng mạn
+    DRAMA_DEEP = "Drama Deep"           # Tâm lý
+    HORROR_NIGHT = "Horror Night"       # Kinh dị
+    CHEFS_TABLE = "Chef's Table"        # Tài liệu (Mới)
+    ANIME_FEAST = "Anime Feast"         # Anime (Mới)
+    TRAVEL_DISCOVERY = "Travel Discovery" # Khám phá (Mới)
     DEFAULT = "Standard"
 
 # ============================================================================
-# REQUEST MODEL
+# 2. MODELS
 # ============================================================================
 
-class CreativeChefRequest(BaseModel):
-    inspiration: str = Field(..., min_length=3, max_length=200, description="Tên phim/anime/chủ đề")
+class CreateByThemeRequest(BaseModel):
+    inspiration: str = Field(..., min_length=1, max_length=200, description="Tên phim/anime/chủ đề")
     mood: str = Field(default="Normal", description="Không khí phim")
     ingredients: str = Field(default="", description="Nguyên liệu có sẵn")
     diet: str = Field(default="None", description="Chế độ ăn")
@@ -61,10 +66,6 @@ class CreativeChefRequest(BaseModel):
             raise ValueError("Cần có nguồn cảm hứng")
         return v.strip()
 
-# ============================================================================
-# RESPONSE MODELS
-# ============================================================================
-
 class FlavorProfile(BaseModel):
     sweet: int = Field(default=0, ge=0, le=10)
     sour: int = Field(default=0, ge=0, le=10)
@@ -78,316 +79,313 @@ class Macros(BaseModel):
     carbs: str = Field(default="0g")
     fat: str = Field(default="0g")
 
-class CreativeChefResponse(BaseModel):
-    # Core Info
-    recipeName: str = Field(..., description="Tên món ăn sáng tạo")
-    narrativeStyle: str = Field(default="Standard", description="Phong cách kể chuyện")
-    story: str = Field(..., description="Câu chuyện món ăn")
-    connection: str = Field(default="", description="Lời bình đạo diễn")
+class CreateByThemeResponse(BaseModel):
+    recipeName: str
+    narrativeStyle: str
+    story: str
+    connection: str
 
-    # Recipe Details (Simplified)
-    ingredients: List[str] = Field(default_factory=list, description="Danh sách nguyên liệu dạng text")
-    instructions: List[str] = Field(default_factory=list, description="Các bước làm dạng text")
+    ingredients: List[str] = Field(default_factory=list)
+    instructions: List[str] = Field(default_factory=list)
 
-    # Time & Specs
-    prepTime: str = Field(default="??", description="Thời gian sơ chế")
-    cookTime: str = Field(default="??", description="Thời gian nấu")
+    prepTime: str
+    cookTime: str
 
-    # Sensory & Aesthetics
     flavorProfile: FlavorProfile
-    visualColors: List[str] = Field(default_factory=list, description="Mã màu hex")
-    platingGuide: str = Field(default="", description="Hướng dẫn trình bày")
+    visualColors: List[str]
+    platingGuide: str
 
-    # Extras
-    pairing: str = Field(default="", description="Gợi ý đồ uống/món phụ")
-    musicRecommendation: str = Field(default="Silence", description="Nhạc nền")
+    pairing: str
+    musicRecommendation: str
     macros: Macros
-    origin: str = Field(default="", description="Nguồn gốc món ăn")
+    origin: str = Field(default="")
 
 # ============================================================================
-# COLOR PALETTE GENERATOR
+# 3. UTILS (Bảng màu mới & Xử lý dữ liệu)
 # ============================================================================
 
 def generate_color_palette(style: str, mood: str) -> List[str]:
-    """Tạo bảng màu hex dựa trên style và mood"""
-
-    # Normalize
-    s = str(style).lower().replace(' ', '').replace('_', '')
+    """Tạo bảng màu hex dựa trên 8 style mới"""
+    # Normalize: chữ thường, bỏ dấu cách, bỏ dấu gạch dưới, bỏ dấu nháy đơn (Chef's -> chefs)
+    s = str(style).lower().replace(' ', '').replace('_', '').replace("'", "")
     m = str(mood).lower()
 
     color_map = {
-        # Action & Thriller
-        'actionrush': ['#8B0000', '#DC143C', '#1A1A1A'],
-        'action': ['#B22222', '#FF4500', '#2C2C2C'],
+        # Giữ nguyên
+        'comicmode': ['#facc15', '#ef4444', '#2563eb'],      # Yellow/Red/Blue
+        'actionrush': ['#7f1d1d', '#f97316', '#000000'],     # Red/Orange/Black
+        'romancemood': ['#881337', '#ec4899', '#fb7185'],    # Pink/Rose
+        'dramadeep': ['#451a03', '#78350f', '#171717'],      # Brown/Sepia
+        'horrornight': ['#1a0000', '#4a0000', '#0a0a0a'],    # Dark Blood
 
-        # Horror & Dark
-        'horror': ['#2F0000', '#660000', '#0A0A0A'],
-        'noir': ['#1A1A1A', '#4A4A4A', '#8B0000'],
-
-        # Sci-Fi & Cyberpunk
-        'cyberpunklogic': ['#0A192F', '#64FFDA', '#8B5CF6'],
-        'cyberpunk': ['#0F172A', '#06B6D4', '#A855F7'],
-        'scifi': ['#1E293B', '#3B82F6', '#10B981'],
-
-        # Ghibli & Nature
-        'ghiblisoftdream': ['#2D5016', '#7CB342', '#81D4FA'],
-        'ghibli': ['#1B5E20', '#8BC34A', '#4FC3F7'],
-        'nature': ['#1B5E20', '#66BB6A', '#FFD54F'],
-
-        # Mystic & Fantasy
-        'mysticwhisper': ['#4A148C', '#9C27B0', '#E91E63'],
-        'mystic': ['#311B92', '#7E57C2', '#EC407A'],
-        'fantasy': ['#4A148C', '#AB47BC', '#F48FB1'],
-
-        # Comedy & Fun
-        'comicmode': ['#F57F17', '#FBC02D', '#1565C0'],
-        'comic': ['#F9A825', '#FDD835', '#0277BD'],
-        'comedy': ['#FF6F00', '#FFEB3B', '#0288D1'],
-
-        # Romance
-        'romancemood': ['#880E4F', '#E91E63', '#FCE4EC'],
-        'romance': ['#C2185B', '#F06292', '#F8BBD0'],
-
-        # Drama
-        'dramadeep': ['#1A237E', '#303F9F', '#5C6BC0'],
-        'drama': ['#263238', '#455A64', '#78909C'],
+        # Style Mới
+        'chefstable': ['#1c1917', '#a8a29e', '#f5f5f4'],     # Stone/Elegant (Documentary)
+        'animefeast': ['#ff6b35', '#f7b731', '#5f27cd'],     # Vibrant/Neon (Shokugeki)
+        'traveldiscovery': ['#006d77', '#83c5be', '#ffddd2'], # Teal/Sand (Travel)
     }
 
     # Match style
     for key, colors in color_map.items():
-        if key in s:
-            return colors
+        if key in s: return colors
 
-    # Match mood
+    # Fallback theo Mood nếu style không khớp
     mood_map = {
-        'adventure': ['#FF6B35', '#F7931E', '#004E89'],
         'horror': ['#2F0000', '#660000', '#0A0A0A'],
+        'action': ['#FF6B35', '#F7931E', '#004E89'],
         'romance': ['#C2185B', '#F06292', '#F8BBD0'],
         'comedy': ['#FFC107', '#FF9800', '#03A9F4'],
+        'documentary': ['#1c1917', '#a8a29e', '#f5f5f4'],
+        'anime': ['#ff6b35', '#f7b731', '#5f27cd'],
     }
 
     for key, colors in mood_map.items():
-        if key in m:
-            return colors
+        if key in m: return colors
 
-    # Default
-    return ['#0F172A', '#1E293B', '#475569']
+    return ['#0f172a', '#334155', '#94a3b8'] # Default Slate
+
+def clean_macros(macros_data: Dict[str, Any]) -> Dict[str, str]:
+    """Sửa lỗi AI trả về khoảng giá trị (VD: '300-400' -> '300')"""
+    cleaned = {}
+    for key in ['calories', 'protein', 'carbs', 'fat']:
+        value = str(macros_data.get(key, "0"))
+        match = re.search(r'(\d+)', value)
+        if match:
+            num = match.group(1)
+            cleaned[key] = num if key == 'calories' else f"{num}g"
+        else:
+            cleaned[key] = "0" if key == 'calories' else "0g"
+    return cleaned
+
+def translate_flavor_keys(flavor_data: Dict[str, int]) -> Dict[str, int]:
+    """Chuyển đổi key tiếng Việt (từ AI) sang tiếng Anh (cho Frontend)"""
+    map_vn_en = {
+        'ngọt': 'sweet', 'chua': 'sour', 'cay': 'spicy',
+        'mặn': 'umami', 'đậm đà': 'umami', 'umami': 'umami',
+        'béo': 'richness', 'ngậy': 'richness', 'richness': 'richness'
+    }
+    new_profile = {"sweet": 0, "sour": 0, "spicy": 0, "umami": 0, "richness": 0}
+
+    for k, v in flavor_data.items():
+        k_lower = k.lower()
+        if k_lower in new_profile:
+            new_profile[k_lower] = v
+        elif k_lower in map_vn_en:
+            new_profile[map_vn_en[k_lower]] = v
+
+    return new_profile
+
+def clean_json_response(raw_json: str) -> str:
+    """Làm sạch chuỗi JSON từ AI (loại bỏ markdown ```json)"""
+    cleaned = re.sub(r'^```(?:json)?\s*', '', raw_json, flags=re.MULTILINE)
+    cleaned = re.sub(r'```\s*$', '', cleaned, flags=re.MULTILINE)
+    return cleaned.strip()
 
 # ============================================================================
-# SYSTEM INSTRUCTION
+# 4. SYSTEM INSTRUCTION (CẬP NHẬT 8 PERSONAS MỚI)
 # ============================================================================
 
 SYSTEM_INSTRUCTION = """
-### IDENTITY
-You are a CINEMATIC CULINARY STORYTELLER - part chef, part screenwriter, part artist.
+### IDENTITY: CINEMATIC CULINARY STORYTELLER
+You are a METHOD ACTOR AI - part chef, part screenwriter, part artist.
 
 ### MISSION
-Transform a film/anime/theme into a complete sensory experience through food.
-This is NOT just a recipe - it's a NARRATIVE EXPERIENCE.
+Transform a film/anime/theme into a complete sensory food experience.
+This is NOT just a recipe - it's a NARRATIVE PERFORMANCE.
 
-### CREATIVE FRAMEWORK
+### 🎭 METHOD ACTING FRAMEWORK - 8 PERSONAS
 
-**1. NARRATIVE VOICE (Choose based on mood/genre):**
-- **Comic Mode**: Playful, witty narration (think Deadpool cooking)
-- **Mystic Whisper**: Poetic, mystical language (Studio Ghibli vibes)
-- **Action Rush**: Fast-paced, energetic, intense (like a heist movie)
-- **Ghibli Soft Dream**: Gentle, nostalgic, nature-focused
-- **Cyberpunk Logic**: Technical, futuristic, precise
-- **Romance Mood**: Sensual, emotional, intimate
-- **Drama Deep**: Serious, profound, thoughtful
+You MUST embody one of these personas based on the film's genre/mood:
 
-**2. STORY STRUCTURE:**
-- **Opening (story)**: Set the scene - why this dish exists in this universe
-- **Connection**: Director's commentary - the philosophy behind the dish
-- **Instructions**: Written like ACTION SCENES, not boring steps
+**1. 🎭 COMIC MODE (Comedy / Parody)**
+- **Style:** Deadpool cooking, Asian comedy vlogger.
+- **Tone:** Playful, breaks the 4th wall, sarcastic.
+- **Language:** Slang, puns, talks directly to the reader.
+- **Example:** "Chop that onion fast! Don't cry - save tears for the movie ending! This dish will make you forget your ex!"
 
-**3. SENSORY DESIGN:**
-- **Flavor Profile**: Rate 0-10 for sweet/sour/spicy/umami/richness
-- **Visual Colors**: 3 HEX colors that represent the film's palette
-- **Plating**: Describe like a movie scene composition
+**2. 🔥 ACTION RUSH (Action / High Speed)**
+- **Style:** Gordon Ramsay, Fast & Furious trailer.
+- **Tone:** Short, punchy sentences. Strong verbs (BLAST, SEAR, IGNITE).
+- **Vibe:** Urgency, adrenaline, no hesitation.
+- **Example:** "HIGH HEAT! Pan DOWN now! No hesitation - flavor needs EXPLOSION. Time is the enemy!"
 
-**4. CREATIVITY LEVELS:**
-- 0-30: Stay faithful to authentic recipes
-- 30-70: Creative fusion, modern twists
-- 70-100: Experimental, avant-garde, molecular gastronomy
+**3. 🌹 ROMANCE MOOD (Romance / Sweet)**
+- **Style:** K-Drama, French cinema, Before Sunrise.
+- **Tone:** Sensual, sweet, deep emotions.
+- **Metaphors:** Flavors as love (bittersweet, passionate, tender).
+- **Example:** "Bitter chocolate melts into sweet cream, like hands clasped in rain. Season with tenderness."
 
-### OUTPUT RULES
-1. Recipe name should be CINEMATIC (not just "Pasta")
-2. Story must connect emotionally to the theme
-3. Ingredients list is simple strings (not objects)
-4. Instructions are narrative, not robotic
-5. Always include music recommendation from the film/similar
-6. Visual colors MUST be valid HEX codes (#RRGGBB)
+**4. 🎬 DRAMA DEEP (Tragedy / Profound)**
+- **Style:** Parasite, The Godfather, philosophical films.
+- **Tone:** Thoughtful, heavy, meaningful.
+- **Connection:** Food as a metaphor for life/struggle.
+- **Example:** "This stew represents the chaos in Act 2 - everything crumbles yet hope lingers (sweet aftertaste)."
 
-### EXAMPLE TRANSFORMATION
-**Input:** Spirited Away, Comfort Food
-**Bad:** "Onigiri rice balls - Step 1: Cook rice..."
-**Good:** - Name: "Chihiro's Courage Onigiri"
-- Story: "In the spirit world's bathhouse, a simple rice ball became..."
-- Instructions: "As steam rises like spirits awakening, shape the warm rice..."
-- Colors: ["#2D5016", "#7CB342", "#81D4FA"] (forest greens, sky blue)
+**5. 👻 HORROR NIGHT (Horror / Dark)**
+- **Style:** Silence of the Lambs, Gothic horror.
+- **Tone:** Eerie, suspenseful, unsettling but appetizing.
+- **Imagery:** Dark colors, ominous sounds, blood metaphors.
+- **Example:** "As the blade slices through flesh, crimson juices pool like a scene from a slasher film. The garlic hisses..."
+
+**6. 📺 CHEF'S TABLE (Documentary / Art)**
+- **Style:** Netflix Chef's Table, Jiro Dreams of Sushi.
+- **Tone:** Reverent, focused on technique, ingredient origin.
+- **Focus:** Craftsmanship, philosophy, history.
+- **Example:** "The chef spent 40 years perfecting this broth. Every grain of salt is a prayer. Heat is not a number, it is intuition."
+
+**7. 🍜 ANIME FEAST (Shokugeki / Food Wars)**
+- **Style:** Food Wars, Toriko, exaggerated reactions.
+- **Tone:** Hyper-energetic, visual effects, "foodgasm".
+- **Description:** Explosive flavors, glowing food, clothes bursting.
+- **Example:** "When the meat touches your tongue - BOOM! The universe explodes! Umami tsunami! Angels are singing!"
+
+**8. 🌍 TRAVEL DISCOVERY (Travel / Culture)**
+- **Style:** Anthony Bourdain, Street Food Asia.
+- **Tone:** Curious, storytelling, connecting with locals.
+- **Focus:** History, people, the story behind the stall.
+- **Example:** "In a dark alley in Hanoi at 3 AM, Mrs. Hien still cooks pho like 50 years ago. This broth carries memories of war and love..."
+
+### 🎯 OUTPUT RULES
+
+**LANGUAGE:**
+- Prompts: English (for AI comprehension)
+- Output: NATURAL VIETNAMESE (như người Việt bản xứ nói, KHÔNG dịch máy)
+- Story must be narrative-rich, not bland descriptions
+
+**FLAVOR PROFILE:**
+- Keys: "Ngọt", "Chua", "Cay", "Umami", "Béo" (Vietnamese)
+- Values: Integers 0-10
+
+**MACROS FORMAT:**
+- **MUST BE SPECIFIC NUMBERS** (not ranges)
+- Format: "380", "8g", "45g", "25g"
+
+**INSTRUCTIONS:**
+- Written as ACTION SCENES (not boring steps)
+- Clear enough to actually cook from
+- Balance narrative flair with practical clarity
+
+**VISUAL COLORS:**
+- MUST be valid HEX codes (#RRGGBB)
+- Represent the film's color palette
 """
 
 # ============================================================================
-# RESPONSE SCHEMA
+# 5. SCHEMA DEFINITION (CẬP NHẬT ENUM MỚI)
 # ============================================================================
 
 def get_response_schema() -> Dict[str, Any]:
-    """Schema for Gemini structured output"""
+    """JSON schema for Gemini structured output"""
     return {
         "type": "object",
         "properties": {
-            "recipeName": {"type": "string"},
-            "narrativeStyle": {"type": "string"},
-            "story": {"type": "string"},
-            "connection": {"type": "string"},
-            "ingredients": {
-                "type": "array",
-                "items": {"type": "string"}
+            "recipeName": {"type": "string", "description": "Creative name in Vietnamese"},
+            "narrativeStyle": {
+                "type": "string",
+                "enum": [
+                    "Comic Mode", "Action Rush", "Romance Mood",
+                    "Drama Deep", "Horror Night", "Chef's Table",
+                    "Anime Feast", "Travel Discovery"
+                ],
+                "description": "Choose ONE persona"
             },
-            "instructions": {
-                "type": "array",
-                "items": {"type": "string"}
-            },
+            "story": {"type": "string", "description": "Compelling story in Vietnamese"},
+            "connection": {"type": "string", "description": "Director's commentary"},
+            "ingredients": {"type": "array", "items": {"type": "string"}},
+            "instructions": {"type": "array", "items": {"type": "string"}},
             "prepTime": {"type": "string"},
             "cookTime": {"type": "string"},
             "flavorProfile": {
                 "type": "object",
                 "properties": {
-                    "sweet": {"type": "integer"},
-                    "sour": {"type": "integer"},
-                    "spicy": {"type": "integer"},
-                    "umami": {"type": "integer"},
-                    "richness": {"type": "integer"}
+                    "Ngọt": {"type": "integer"}, "Chua": {"type": "integer"},
+                    "Cay": {"type": "integer"}, "Umami": {"type": "integer"},
+                    "Béo": {"type": "integer"}
                 },
-                "required": ["sweet", "sour", "spicy", "umami", "richness"]
+                "required": ["Ngọt", "Chua", "Cay", "Umami", "Béo"]
             },
-            "visualColors": {
-                "type": "array",
-                "items": {"type": "string"}
-            },
+            "visualColors": {"type": "array", "items": {"type": "string"}},
             "platingGuide": {"type": "string"},
             "pairing": {"type": "string"},
             "musicRecommendation": {"type": "string"},
             "macros": {
                 "type": "object",
-                "properties": {
-                    "calories": {"type": "string"},
-                    "protein": {"type": "string"},
-                    "carbs": {"type": "string"},
-                    "fat": {"type": "string"}
-                },
-                "required": ["calories", "protein", "carbs", "fat"]
+                "properties": {"calories": {"type": "string"}, "protein": {"type": "string"}, "carbs": {"type": "string"}, "fat": {"type": "string"}}
             },
             "origin": {"type": "string"}
         },
-        "required": [
-            "recipeName", "narrativeStyle", "story", "ingredients",
-            "instructions", "prepTime", "cookTime", "flavorProfile",
-            "visualColors", "platingGuide", "macros"
-        ]
+        "required": ["recipeName", "narrativeStyle", "story", "connection", "ingredients", "instructions", "flavorProfile", "visualColors", "macros"]
     }
 
 # ============================================================================
-# MAIN FUNCTION
+# 6. MAIN FUNCTION
 # ============================================================================
 
-async def create_by_theme(request: CreativeChefRequest) -> CreativeChefResponse:
-    """
-    Tạo món ăn với phong cách kể chuyện điện ảnh
-
-    Args:
-        request: CreativeChefRequest với đầy đủ tham số
-
-    Returns:
-        CreativeChefResponse: Món ăn với narrative đầy đủ
-    """
+async def create_by_theme(request: CreateByThemeRequest) -> CreateByThemeResponse:
     start_time = datetime.now()
-    logger.info(f"🎬 Creative Chef: {request.inspiration} | Mood: {request.mood} | Creativity: {request.creativity}%")
+    logger.info(f"🎬 Creating dish: {request.inspiration} | Mood: {request.mood}")
 
-    # Build dynamic prompt
+    # Prompt xây dựng bằng tiếng Anh để AI hiểu rõ ngữ cảnh, output tiếng Việt
     prompt = f"""
-🎬 **NHIỆM VỤ SÁNG TẠO**
+    🎬 **CREATIVE MISSION**
+    **INSPIRATION:** {request.inspiration}
+    **MOOD/GENRE:** {request.mood}
+    **CREATIVITY LEVEL:** {request.creativity}/100
+    **COOKING TIME:** {request.time}
+    **DIFFICULTY:** {request.difficulty}
+    **DIETARY:** {request.diet}
+    {"**AVAILABLE INGREDIENTS:** " + request.ingredients if request.ingredients else ""}
 
-**CẢM HỨNG:** {request.inspiration}
-**KHÔNG KHÍ:** {request.mood}
-**ĐỘ SÁNG TẠO:** {request.creativity}/100 (0=trung thành nguyên gốc, 100=thử nghiệm táo bạo)
-**THỜI GIAN CHẾ BIẾN:** {request.time}
-**ĐỘ KHÓ:** {request.difficulty}
-**CHỂ ĐỘ ĂN:** {request.diet}
-{"**NGUYÊN LIỆU CÓ SẴN:** " + request.ingredients if request.ingredients else ""}
+    GENERATE A JSON RECIPE IN VIETNAMESE.
+    - Style: Pick ONE of the 8 personas (Chef's Table, Anime Feast, etc.) matching the mood.
+    - Story: Deep storytelling, connected to the movie scene.
+    - Macros: Specific numbers only.
+    """
 
-Hãy tạo một món ăn hoàn chỉnh với:
-1. **recipeName**: Tên món sáng tạo, điện ảnh
-2. **narrativeStyle**: Chọn 1 trong (Comic Mode, Mystic Whisper, Action Rush, Ghibli Soft Dream, Cyberpunk Logic, Romance Mood, Drama Deep)
-3. **story**: Câu chuyện nguồn gốc món ăn (2-3 đoạn văn)
-4. **connection**: Lời bình của đạo diễn về ý nghĩa món ăn (1 câu sâu sắc)
-5. **ingredients**: Mảng string đơn giản ["200g bột mì", "2 quả trứng", ...]
-6. **instructions**: Mảng string kể như action scene ["Khi chảo bắt đầu phát ra tiếng xèo xèo...", ...]
-7. **prepTime**: Ví dụ "15 phút"
-8. **cookTime**: Ví dụ "30 phút"
-9. **flavorProfile**: Đánh giá 0-10 cho từng chiều hương vị
-10. **visualColors**: 3 mã màu HEX (VD: ["#FF0000", "#00FF00", "#0000FF"])
-11. **platingGuide**: Mô tả cách trình bày như một cảnh phim
-12. **pairing**: Gợi ý đồ uống hoặc món phụ (1 câu)
-13. **musicRecommendation**: Tên bài nhạc phim hoặc OST phù hợp
-14. **macros**: Ước tính dinh dưỡng (calories, protein, carbs, fat)
-15. **origin**: Nguồn gốc món ăn (1-2 câu)
-
-LƯU Ý:
-- Ingredients & Instructions PHẢI là mảng STRING đơn giản, KHÔNG phải object
-- Visual colors PHẢI là mã HEX hợp lệ (#RRGGBB)
-- Narrative style phải khớp với mood của phim
-"""
-
-    # Initialize Gemini model
     model = genai.GenerativeModel(
-        model_name='gemini-2.0-flash-exp',
+        model_name=MODEL_NAME, # Sử dụng config từ file cấu hình
         generation_config={
             "response_mime_type": "application/json",
             "response_schema": get_response_schema(),
-            "temperature": 0.7 + (request.creativity / 100) * 0.3,  # 0.7-1.0 based on creativity
-            "top_p": 0.95,
-            "top_k": 40,
-            "max_output_tokens": 8192,
+            "temperature": 0.8, # Tăng nhẹ creativity cho persona mới
         },
         system_instruction=SYSTEM_INSTRUCTION
     )
 
-    try:
-        # Generate - ĐÃ SỬA: Thêm await và dùng generate_content_async để không chặn server
-        response = await model.generate_content_async(prompt)
+    # Retry Logic
+    MAX_RETRIES = 2
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            response = await model.generate_content_async(prompt, request_options={"timeout": 60})
 
-        if not response.candidates:
-            raise RuntimeError("AI đã chặn nội dung")
+            if not response.candidates:
+                raise RuntimeError("AI blocked content")
 
-        raw_json = response.text.strip()
-        if not raw_json:
-            raise ValueError("AI trả về rỗng")
+            # Clean & Parse
+            cleaned_json = clean_json_response(response.text)
+            data = json.loads(cleaned_json)
 
-        # Parse JSON
-        import json
-        data = json.loads(raw_json)
+            # 1. Fallback màu sắc (logic mới)
+            if not data.get('visualColors') or len(data['visualColors']) < 3:
+                data['visualColors'] = generate_color_palette(data.get('narrativeStyle', 'Standard'), request.mood)
 
-        # Ensure color palette exists
-        if not data.get('visualColors') or len(data['visualColors']) < 3:
-            data['visualColors'] = generate_color_palette(
-                data.get('narrativeStyle', 'Standard'),
-                request.mood
-            )
+            # 2. Fix Macros
+            if 'macros' in data:
+                data['macros'] = clean_macros(data['macros'])
 
-        # Validate & construct response
-        result = CreativeChefResponse(**data)
+            # 3. Translate Flavor Keys (Ngọt -> sweet)
+            if 'flavorProfile' in data:
+                data['flavorProfile'] = translate_flavor_keys(data['flavorProfile'])
 
-        duration = (datetime.now() - start_time).total_seconds()
-        logger.info(f"✅ Created: '{result.recipeName}' ({result.narrativeStyle}) in {duration:.2f}s")
-        logger.info(f"🎨 Colors: {result.visualColors}")
+            result = CreateByThemeResponse(**data)
 
-        return result
+            duration = (datetime.now() - start_time).total_seconds()
+            logger.info(f"✅ Cut! Print it! Generated '{result.recipeName}' ({result.narrativeStyle}) in {duration:.2f}s")
 
-    except json.JSONDecodeError as e:
-        logger.error(f"JSON parse error: {e}")
-        raise RuntimeError("AI trả về JSON không hợp lệ")
-    except Exception as e:
-        logger.error(f"Creation failed: {e}")
-        raise RuntimeError(f"Không thể tạo món: {str(e)}")
+            return result
+
+        except Exception as e:
+            logger.error(f"Attempt {attempt} failed: {str(e)}")
+            if attempt < MAX_RETRIES:
+                await asyncio.sleep(1)
+            else:
+                raise RuntimeError(f"Lỗi AI: {str(e)}")
