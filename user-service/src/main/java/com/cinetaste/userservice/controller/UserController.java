@@ -95,4 +95,5 @@ public class UserController {
     public ResponseEntity<UserBasicInfoResponse> getUserBasicInfo(@PathVariable UUID userId) {
         return ResponseEntity.ok(userService.getUserBasicInfo(userId));
     }
+
 }

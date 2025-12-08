@@ -3,15 +3,18 @@ package com.cinetaste.recipeservice.dto;
 import lombok.Builder;
 import lombok.Data;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.io.Serializable;
+
 @Data
 @Builder
-public class RecipeDetailResponse {
+public class RecipeDetailResponse implements Serializable {
+    private static final long serialVersionUID = 1L;
+
     // Thông tin cơ bản (giống RecipeResponse)
     private UUID id;
     private String title;
@@ -29,9 +32,9 @@ public class RecipeDetailResponse {
     // Thông tin chi tiết
     private List<RecipeIngredientDto> ingredients;
     private List<RecipeStepDto> instructions;
-    private Map<String, String> nutrition; // Ví dụ: { "calories": "180", "protein": "4g" }
+    private Map<String, String> nutrition;
 
-    // Thông tin tác giả (Lấy từ User Service sau, giờ tạm hardcode)
+    // Thông tin tác giả
     private AuthorDto author;
 
     // Thông tin phim
@@ -41,6 +44,8 @@ public class RecipeDetailResponse {
     @Data
     @Builder
     public static class AuthorDto implements Serializable {
+        private static final long serialVersionUID = 1L;
+
         private UUID id;
         private String name;
         private String avatarUrl;
@@ -50,6 +55,8 @@ public class RecipeDetailResponse {
     @Data
     @Builder
     public static class MovieDto implements Serializable {
+        private static final long serialVersionUID = 1L;
+
         private String title;
         private Integer year;
         private String posterUrl;

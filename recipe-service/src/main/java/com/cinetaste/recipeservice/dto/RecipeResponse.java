@@ -1,16 +1,22 @@
-// Vị trí: recipe-service/src/main/java/com/cinetaste/recipeservice/dto/RecipeResponse.java
 package com.cinetaste.recipeservice.dto;
 
 import lombok.Builder;
 import lombok.Data;
+import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
-import java.io.Serializable;
+
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class RecipeResponse implements Serializable {
+    private static final long serialVersionUID = 1L;
+
     private UUID id;
     private UUID authorId;
     private String title;
@@ -25,5 +31,4 @@ public class RecipeResponse implements Serializable {
     private Instant createdAt;
     private String movieTitle;
     private Integer ratingsCount;
-    private static final long serialVersionUID = 1L;
 }
