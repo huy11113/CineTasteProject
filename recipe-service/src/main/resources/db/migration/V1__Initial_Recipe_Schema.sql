@@ -116,6 +116,7 @@ CREATE TABLE tags (
     type VARCHAR(30),
     slug VARCHAR(50) UNIQUE NOT NULL,
     description TEXT,
+    image_url TEXT, -- <--- THÊM CỘT NÀY VÀO ĐÂY
     usage_count INT NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 

@@ -20,7 +20,8 @@ public class Tag {
 
     @Column(length = 30)
     private String type;
-
+    @Column(name = "image_url")
+    private String imageUrl;
     // --- THÊM CÁC TRƯỜNG MỚI ---
     @Column(unique = true, nullable = false, length = 50)
     private String slug;

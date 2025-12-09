@@ -384,4 +384,9 @@ public class RecipeService {
                 .build();
         logRepository.save(log);
     }
+    // --- THÊM HÀM MỚI ---
+    public Page<RecipeResponse> getRecipesByAuthorId(UUID authorId, Pageable pageable) {
+        return recipeRepository.findByAuthorId(authorId, pageable)
+                .map(this::mapToRecipeResponse);
+    }
 }

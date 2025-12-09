@@ -156,4 +156,13 @@ public class RecipeController {
         aiFeedbackService.saveFeedback(userId, feedbackRequest);
         return ResponseEntity.ok().build();
     }
+    // --- THÊM API MỚI ---
+    // GET /api/recipes/author/{authorId}
+    @GetMapping("/author/{authorId}")
+    public ResponseEntity<Page<RecipeResponse>> getRecipesByAuthor(
+            @PathVariable UUID authorId,
+            @PageableDefault(size = 9, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
+    ) {
+        return ResponseEntity.ok(recipeService.getRecipesByAuthorId(authorId, pageable));
+    }
 }
