@@ -389,4 +389,5 @@ public class RecipeService {
         return recipeRepository.findByAuthorId(authorId, pageable)
                 .map(this::mapToRecipeResponse);
     }
+
 }
