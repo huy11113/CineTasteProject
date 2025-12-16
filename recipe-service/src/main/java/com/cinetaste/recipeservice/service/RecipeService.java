@@ -229,6 +229,8 @@ public class RecipeService {
                 .build();
     }
     // ===== PHƯƠNG THỨC MỚI: REACT TO COMMENT =====
+    // ===== TRONG RecipeService.java, THÊM METHOD NÀY =====
+
     @Transactional
     public void reactToComment(Long commentId, UUID userId, String reactionType) {
         Comment comment = commentRepository.findById(commentId)
@@ -242,15 +244,15 @@ public class RecipeService {
         if (existingReaction != null) {
             // Nếu đã có reaction
             if (existingReaction.getReactionType().equals(reactionType)) {
-                // Cùng loại reaction -> Xóa (toggle off)
+                // Cùng loại reaction → Xóa (toggle off)
                 reactionRepository.delete(existingReaction);
             } else {
-                // Khác loại reaction -> Cập nhật
+                // Khác loại reaction → Cập nhật
                 existingReaction.setReactionType(reactionType);
                 reactionRepository.save(existingReaction);
             }
         } else {
-            // Chưa có reaction -> Tạo mới
+            // Chưa có reaction → Tạo mới
             CommentReaction newReaction = new CommentReaction();
             newReaction.setId(reactionId);
             newReaction.setComment(comment);
@@ -380,12 +382,22 @@ public class RecipeService {
 
     // ===== HELPER METHOD: Lấy userId từ SecurityContext =====
     private UUID getCurrentUserId() {
-        // Lấy từ header X-User-ID hoặc từ JWT trong SecurityContext
-        // Tùy thuộc vào cách bạn implement authentication
         try {
-            // Ví dụ: Lấy từ thread-local nếu đã set trong filter
-            // Hoặc parse từ JWT trong SecurityContextHolder
-            return null; // TODO: Implement logic này
+            // Lấy từ header X-User-ID hoặc từ JWT trong SecurityContext
+            // Tùy thuộc vào cách bạn implement authentication
+
+            // CÁCH 1: Nếu bạn đã set trong filter (như API Gateway)
+            // return UUID.fromString(RequestContextHolder.currentRequestAttributes()
+            //         .getAttribute("X-User-ID", RequestAttributes.SCOPE_REQUEST));
+
+            // CÁCH 2: Từ SecurityContext (nếu có)
+            // Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            // if (auth != null && auth.getPrincipal() instanceof UserDetails) {
+            //     UserDetails userDetails = (UserDetails) auth.getPrincipal();
+            //     return UUID.fromString(userDetails.getUsername());
+            // }
+
+            return null; // Tạm thời trả về null nếu chưa có user
         } catch (Exception e) {
             return null;
         }
@@ -401,24 +413,22 @@ public class RecipeService {
             // Fallback data nếu không gọi được User Service
         }
 
-        // ✅ ĐẾM REACTIONS (Nếu đã implement bảng comment_reactions)
+        // ✅ ĐẾM REACTIONS
         long likes = 0;
         long dislikes = 0;
         String userReaction = null;
 
         try {
-            // Chỉ chạy nếu đã có bảng comment_reactions
             likes = reactionRepository.countByCommentIdAndReactionType(comment.getId(), "like");
             dislikes = reactionRepository.countByCommentIdAndReactionType(comment.getId(), "dislike");
 
-            // Lấy reaction của user hiện tại
-            UUID currentUserId = getCurrentUserId();
+            // Lấy reaction của user hiện tại (nếu có)
+            UUID currentUserId = getCurrentUserId(); // ⚠️ BẠN CẦN IMPLEMENT HÀM NÀY
             if (currentUserId != null) {
                 userReaction = reactionRepository.findReactionTypeByUserIdAndCommentId(currentUserId, comment.getId());
             }
         } catch (Exception e) {
-            // Bảng comment_reactions chưa tồn tại → skip
-            System.err.println("⚠️ Reactions table not available yet");
+            System.err.println("⚠️ Reactions table error: " + e.getMessage());
         }
 
         return CommentResponse.builder()
@@ -436,6 +446,7 @@ public class RecipeService {
                 .userReaction(userReaction)
                 .build();
     }
+
     // =========================================================================
     // 5. AI ANALYSIS
     // =========================================================================
@@ -472,6 +483,4 @@ public class RecipeService {
         return recipeRepository.findByAuthorId(authorId, pageable)
                 .map(this::mapToRecipeResponse);
     }
-
-
 }
