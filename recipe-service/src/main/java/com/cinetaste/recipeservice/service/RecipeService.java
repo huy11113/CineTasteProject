@@ -344,12 +344,23 @@ public class RecipeService {
     }
 
     private CommentResponse mapToCommentResponse(Comment comment) {
+        // Gọi User Client lấy thông tin người bình luận
+        UserBasicInfo userInfo = null;
+        try {
+            userInfo = userClient.getUserById(comment.getAuthorId());
+        } catch (Exception e) {
+            // Log error nhưng không chặn flow
+        }
+
         return CommentResponse.builder()
                 .id(comment.getId())
                 .authorId(comment.getAuthorId())
                 .parentId(comment.getParent() != null ? comment.getParent().getId() : null)
                 .content(comment.getContent())
                 .createdAt(comment.getCreatedAt())
+                // Map thông tin Author
+                .authorDisplayName(userInfo != null ? userInfo.getDisplayName() : "Unknown User")
+                .authorProfileImageUrl(userInfo != null ? userInfo.getProfileImageUrl() : null)
                 .build();
     }
 
@@ -389,5 +400,6 @@ public class RecipeService {
         return recipeRepository.findByAuthorId(authorId, pageable)
                 .map(this::mapToRecipeResponse);
     }
+
 
 }

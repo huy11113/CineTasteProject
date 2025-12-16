@@ -14,9 +14,11 @@ public class UserProfileResponse {
     private String displayName;
     private String bio;
     private String profileImageUrl;
-    private Instant memberSince; // createdAt
+    private Instant memberSince;
 
-    // Thống kê xã hội
     private long followerCount;
     private long followingCount;
+
+    // --- TRƯỜNG MỚI QUAN TRỌNG ---
+    private boolean isFollowing;
 }

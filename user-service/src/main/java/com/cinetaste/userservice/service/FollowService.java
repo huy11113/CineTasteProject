@@ -69,4 +69,8 @@ public class FollowService {
     public long countFollowing(UUID userId) {
         return followRepository.countByFollowerId(userId);
     }
+    public boolean isFollowing(UUID followerId, UUID followingId) {
+        if (followerId == null || followingId == null) return false;
+        return followRepository.existsByFollowerIdAndFollowingId(followerId, followingId);
+    }
 }

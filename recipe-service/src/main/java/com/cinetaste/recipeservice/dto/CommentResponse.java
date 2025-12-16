@@ -2,7 +2,6 @@ package com.cinetaste.recipeservice.dto;
 
 import lombok.Builder;
 import lombok.Data;
-
 import java.time.Instant;
 import java.util.UUID;
 
@@ -14,7 +13,8 @@ public class CommentResponse {
     private Long parentId;
     private String content;
     private Instant createdAt;
-    // Chúng ta có thể thêm các thông tin khác của tác giả (tên, ảnh đại diện) ở đây sau này
-    // private String authorDisplayName;
-    // private String authorProfileImageUrl;
+
+    // --- THÊM TRƯỜNG ---
+    private String authorDisplayName;
+    private String authorProfileImageUrl;
 }
