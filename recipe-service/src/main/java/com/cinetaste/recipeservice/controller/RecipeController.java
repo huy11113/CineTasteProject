@@ -5,11 +5,12 @@ import com.cinetaste.recipeservice.dto.ai.AnalyzeDishResponse;
 import com.cinetaste.recipeservice.entity.Recipe;
 import com.cinetaste.recipeservice.service.AiFeedbackService;
 import com.cinetaste.recipeservice.service.RecipeService;
+import com.cinetaste.recipeservice.service.CommentReactionService;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable; // Đảm bảo import này
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
@@ -30,8 +31,8 @@ public class RecipeController {
 
     private final RecipeService recipeService;
     private final AiFeedbackService aiFeedbackService;
+    private final CommentReactionService commentReactionService; // ✅ THÊM DÒNG NÀY
 
-    // (Hàm createRecipe không đổi)
     @PostMapping
     public ResponseEntity<Recipe> createRecipe(
             @Valid @RequestBody CreateRecipeRequest request,
@@ -42,7 +43,6 @@ public class RecipeController {
         return ResponseEntity.status(HttpStatus.CREATED).body(createdRecipe);
     }
 
-    // (Hàm getAllRecipes không đổi - trả về tóm tắt)
     @GetMapping
     public ResponseEntity<Page<RecipeResponse>> getAllRecipes(
             @PageableDefault(size = 9, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
@@ -50,22 +50,16 @@ public class RecipeController {
         return ResponseEntity.ok(recipeService.getAllRecipes(pageable));
     }
 
-    // --- SỬA HÀM NÀY (Lỗi 1) ---
-    // Trả về RecipeDetailResponse (đầy đủ chi tiết)
     @GetMapping("/{recipeId}")
-    public ResponseEntity<RecipeDetailResponse> getRecipeById(@PathVariable UUID recipeId) { // <-- Sửa kiểu trả về
+    public ResponseEntity<RecipeDetailResponse> getRecipeById(@PathVariable UUID recipeId) {
         try {
-            // Sửa tên hàm được gọi cho khớp với Service
             RecipeDetailResponse recipeDetail = recipeService.getRecipeDetailById(recipeId);
             return ResponseEntity.ok(recipeDetail);
         } catch (RuntimeException e) {
-            // TODO: Phân biệt lỗi Not Found và lỗi khác
             return ResponseEntity.notFound().build();
         }
     }
-    // --- KẾT THÚC SỬA ---
 
-    // (Hàm rateRecipe không đổi)
     @PostMapping("/{recipeId}/ratings")
     public ResponseEntity<Void> rateRecipe(
             @PathVariable UUID recipeId,
@@ -77,7 +71,6 @@ public class RecipeController {
         return ResponseEntity.ok().build();
     }
 
-    // (Hàm addComment không đổi)
     @PostMapping("/{recipeId}/comments")
     public ResponseEntity<CommentResponse> addComment(
             @PathVariable UUID recipeId,
@@ -89,7 +82,6 @@ public class RecipeController {
         return ResponseEntity.status(HttpStatus.CREATED).body(newComment);
     }
 
-    // (Hàm getComments không đổi)
     @GetMapping("/{recipeId}/comments")
     public ResponseEntity<List<CommentResponse>> getComments(@PathVariable UUID recipeId) {
         try {
@@ -99,7 +91,6 @@ public class RecipeController {
         }
     }
 
-    // (Hàm updateRecipe không đổi)
     @PutMapping("/{recipeId}")
     public ResponseEntity<RecipeResponse> updateRecipe(
             @PathVariable UUID recipeId,
@@ -117,7 +108,6 @@ public class RecipeController {
         }
     }
 
-    // (Hàm deleteRecipe không đổi)
     @DeleteMapping("/{recipeId}")
     public ResponseEntity<Void> deleteRecipe(
             @PathVariable UUID recipeId,
@@ -134,7 +124,6 @@ public class RecipeController {
         }
     }
 
-    // (Các hàm AI không đổi)
     @PostMapping(value = "/ai/analyze-dish", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public Mono<ResponseEntity<AnalyzeDishResponse>> analyzeDish(
             @RequestHeader("X-User-ID") String userIdHeader,
@@ -156,8 +145,7 @@ public class RecipeController {
         aiFeedbackService.saveFeedback(userId, feedbackRequest);
         return ResponseEntity.ok().build();
     }
-    // --- THÊM API MỚI ---
-    // GET /api/recipes/author/{authorId}
+
     @GetMapping("/author/{authorId}")
     public ResponseEntity<Page<RecipeResponse>> getRecipesByAuthor(
             @PathVariable UUID authorId,
@@ -165,16 +153,34 @@ public class RecipeController {
     ) {
         return ResponseEntity.ok(recipeService.getRecipesByAuthorId(authorId, pageable));
     }
-    // ===== ENDPOINT MỚI: REACT TO COMMENT =====
+
+    // ============================================================================
+    // ✅ ENDPOINT MỚI: REACT TO COMMENT
+    // ============================================================================
     @PostMapping("/{recipeId}/comments/{commentId}/reactions")
-    public ResponseEntity<Void> reactToComment(
+    public ResponseEntity<CommentReactionDto> reactToComment(
             @PathVariable UUID recipeId,
             @PathVariable Long commentId,
             @RequestHeader("X-User-ID") String userIdHeader,
             @Valid @RequestBody ReactToCommentRequest request
     ) {
-        UUID userId = UUID.fromString(userIdHeader);
-        recipeService.reactToComment(commentId, userId, request.getReactionType());
-        return ResponseEntity.ok().build();
+        try {
+            System.out.println("📥 POST /api/recipes/" + recipeId + "/comments/" + commentId + "/reactions");
+            System.out.println("📦 Reaction: " + request.getReactionType());
+
+            UUID userId = UUID.fromString(userIdHeader);
+            CommentReactionDto result = commentReactionService.reactToComment(
+                    commentId,
+                    userId,
+                    request.getReactionType()
+            );
+
+            System.out.println("✅ Backend trả về: " + result);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            System.err.println("❌ Lỗi: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().build();
+        }
     }
 }

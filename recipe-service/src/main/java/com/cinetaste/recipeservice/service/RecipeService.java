@@ -230,7 +230,6 @@ public class RecipeService {
     }
     // ===== PHƯƠNG THỨC MỚI: REACT TO COMMENT =====
     // ===== TRONG RecipeService.java, THÊM METHOD NÀY =====
-
     @Transactional
     public void reactToComment(Long commentId, UUID userId, String reactionType) {
         Comment comment = commentRepository.findById(commentId)
@@ -246,10 +245,13 @@ public class RecipeService {
             if (existingReaction.getReactionType().equals(reactionType)) {
                 // Cùng loại reaction → Xóa (toggle off)
                 reactionRepository.delete(existingReaction);
+                System.out.println("✅ Xóa reaction: " + reactionType);
             } else {
                 // Khác loại reaction → Cập nhật
                 existingReaction.setReactionType(reactionType);
                 reactionRepository.save(existingReaction);
+                System.out.println("✅ Thay đổi reaction từ " +
+                        existingReaction.getReactionType() + " sang " + reactionType);
             }
         } else {
             // Chưa có reaction → Tạo mới
@@ -258,10 +260,9 @@ public class RecipeService {
             newReaction.setComment(comment);
             newReaction.setReactionType(reactionType);
             reactionRepository.save(newReaction);
+            System.out.println("✅ Thêm reaction mới: " + reactionType);
         }
     }
-
-
     // =========================================================================
     // 3. UPDATE & DELETE - Xóa Cache liên quan
     // =========================================================================
