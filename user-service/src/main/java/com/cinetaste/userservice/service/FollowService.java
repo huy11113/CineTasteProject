@@ -57,4 +57,16 @@ public class FollowService {
 
         followRepository.deleteById(followId);
     }
+
+    // --- CÁC HÀM MỚI QUAN TRỌNG CẦN THÊM ---
+
+    // Đếm số người đang theo dõi user này (Followers)
+    public long countFollowers(UUID userId) {
+        return followRepository.countByFollowingId(userId);
+    }
+
+    // Đếm số người user này đang theo dõi (Following)
+    public long countFollowing(UUID userId) {
+        return followRepository.countByFollowerId(userId);
+    }
 }

@@ -1,37 +1,46 @@
 package com.cinetaste.userservice.controller;
 
-
 import com.cinetaste.userservice.dto.UserBasicInfoResponse;
+import com.cinetaste.userservice.dto.UserProfileResponse; // THÊM IMPORT
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import com.cinetaste.userservice.service.FollowService;
-import com.cinetaste.userservice.dto.UserProfileResponse;
 import com.cinetaste.userservice.dto.UpdateProfileRequest;
 import com.cinetaste.userservice.entity.User;
 import com.cinetaste.userservice.service.UserService;
 import lombok.RequiredArgsConstructor;
-import com.cinetaste.userservice.dto.FlavorProfileRequest; // Thêm import này
-import com.cinetaste.userservice.service.FlavorProfileService; // Thêm import này
+import com.cinetaste.userservice.dto.FlavorProfileRequest;
+import com.cinetaste.userservice.service.FlavorProfileService;
 import java.util.Map;
 import java.util.UUID;
+
 @RestController
 @RequestMapping("/api/users")
 @RequiredArgsConstructor
 public class UserController {
-    private final FollowService followService; // Inject FollowService
+    private final FollowService followService;
     private final UserService userService;
     private final FlavorProfileService flavorProfileService;
+
+    // --- ENDPOINT MỚI: Lấy thông tin chi tiết của chính mình ---
+    @GetMapping("/me/profile")
+    public ResponseEntity<UserProfileResponse> getMyFullProfile(
+            @RequestHeader("X-User-ID") String currentUserIdHeader) {
+
+        UUID currentUserId = UUID.fromString(currentUserIdHeader);
+        UserProfileResponse profile = userService.getUserProfileById(currentUserId);
+        return ResponseEntity.ok(profile);
+    }
+
     @GetMapping("/me")
     public ResponseEntity<?> getCurrentUser(Authentication authentication) {
-        // Nếu request có JWT token hợp lệ, Spring Security sẽ tự động
-        // điền thông tin người dùng vào đối tượng 'authentication'.
         if (authentication == null) {
             return ResponseEntity.status(401).body("No user authenticated");
         }
         return ResponseEntity.ok(authentication.getPrincipal());
     }
-    // --- ENDPOINT MỚI: Theo dõi một người dùng ---
+
     @PostMapping("/{userIdToFollow}/follow")
     public ResponseEntity<Void> followUser(
             @PathVariable UUID userIdToFollow,
@@ -42,7 +51,6 @@ public class UserController {
         return ResponseEntity.ok().build();
     }
 
-    // --- ENDPOINT MỚI: Bỏ theo dõi một người dùng ---
     @DeleteMapping("/{userIdToUnfollow}/follow")
     public ResponseEntity<Void> unfollowUser(
             @PathVariable UUID userIdToUnfollow,
@@ -52,7 +60,7 @@ public class UserController {
         followService.unfollowUser(currentUserId, userIdToUnfollow);
         return ResponseEntity.ok().build();
     }
-    // --- ENDPOINT MỚI: Lấy thông tin hồ sơ công khai của người dùng ---
+
     @GetMapping("/{username}")
     public ResponseEntity<UserProfileResponse> getUserProfile(@PathVariable String username) {
         try {
@@ -62,7 +70,7 @@ public class UserController {
             return ResponseEntity.notFound().build();
         }
     }
-    // --- ENDPOINT MỚI: Cập nhật hồ sơ của người dùng hiện tại ---
+
     @PutMapping("/me")
     public ResponseEntity<User> updateCurrentUserProfile(
             @RequestHeader("X-User-ID") String currentUserIdHeader,
@@ -72,7 +80,6 @@ public class UserController {
         User updatedUser = userService.updateUserProfile(currentUserId, request);
         return ResponseEntity.ok(updatedUser);
     }
-    // --- ENDPOINT MỚI CHO HỒ SƠ HƯƠNG VỊ ---
 
     @GetMapping("/me/flavor-profile")
     public ResponseEntity<Map<String, Object>> getMyFlavorProfile(@RequestHeader("X-User-ID") String userIdHeader) {
@@ -90,10 +97,9 @@ public class UserController {
         Map<String, Object> updatedProfile = flavorProfileService.updateProfile(userId, request.getPreferences());
         return ResponseEntity.ok(updatedProfile);
     }
-    // Endpoint này dùng cho các microservice khác gọi (Internal use)
+
     @GetMapping("/{userId}/basic-info")
     public ResponseEntity<UserBasicInfoResponse> getUserBasicInfo(@PathVariable UUID userId) {
         return ResponseEntity.ok(userService.getUserBasicInfo(userId));
     }
-
 }
