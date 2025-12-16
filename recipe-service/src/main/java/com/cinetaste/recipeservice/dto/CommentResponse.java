@@ -1,3 +1,6 @@
+// ============================================================================
+// 4. DTO: CommentResponse.java (CẬP NHẬT)
+// ============================================================================
 package com.cinetaste.recipeservice.dto;
 
 import lombok.Builder;
@@ -14,7 +17,12 @@ public class CommentResponse {
     private String content;
     private Instant createdAt;
 
-    // --- THÊM TRƯỜNG ---
+    // Thông tin tác giả
     private String authorDisplayName;
     private String authorProfileImageUrl;
+
+    // ===== PHẦN MỚI: REACTIONS =====
+    private long likes;          // Số lượng likes
+    private long dislikes;       // Số lượng dislikes
+    private String userReaction; // 'like', 'dislike', hoặc null
 }

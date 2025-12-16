@@ -23,7 +23,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import reactor.core.publisher.Mono;
-
+import com.cinetaste.recipeservice.entity.CommentReaction;
+import com.cinetaste.recipeservice.entity.CommentReactionId;
+import com.cinetaste.recipeservice.repository.CommentReactionRepository;
 import java.math.BigDecimal;
 import java.text.Normalizer;
 import java.time.Instant;
@@ -41,6 +43,7 @@ public class RecipeService {
     private final CommentRepository commentRepository;
     private final AiRequestsLogRepository logRepository;
     private final MovieRepository movieRepository; // Mới: Cho TMDB
+    private final CommentReactionRepository reactionRepository;
 
     // --- 2. EXTERNAL CLIENTS ---
     @Lazy
@@ -225,6 +228,37 @@ public class RecipeService {
                 .movie(movie)
                 .build();
     }
+    // ===== PHƯƠNG THỨC MỚI: REACT TO COMMENT =====
+    @Transactional
+    public void reactToComment(Long commentId, UUID userId, String reactionType) {
+        Comment comment = commentRepository.findById(commentId)
+                .orElseThrow(() -> new RuntimeException("Comment not found"));
+
+        CommentReactionId reactionId = new CommentReactionId(userId, commentId);
+
+        // Kiểm tra xem user đã react chưa
+        CommentReaction existingReaction = reactionRepository.findById(reactionId).orElse(null);
+
+        if (existingReaction != null) {
+            // Nếu đã có reaction
+            if (existingReaction.getReactionType().equals(reactionType)) {
+                // Cùng loại reaction -> Xóa (toggle off)
+                reactionRepository.delete(existingReaction);
+            } else {
+                // Khác loại reaction -> Cập nhật
+                existingReaction.setReactionType(reactionType);
+                reactionRepository.save(existingReaction);
+            }
+        } else {
+            // Chưa có reaction -> Tạo mới
+            CommentReaction newReaction = new CommentReaction();
+            newReaction.setId(reactionId);
+            newReaction.setComment(comment);
+            newReaction.setReactionType(reactionType);
+            reactionRepository.save(newReaction);
+        }
+    }
+
 
     // =========================================================================
     // 3. UPDATE & DELETE - Xóa Cache liên quan
@@ -337,19 +371,54 @@ public class RecipeService {
         if (!recipeRepository.existsById(recipeId)) {
             throw new RuntimeException("Recipe not found with id: " + recipeId);
         }
+
         return commentRepository.findByRecipeIdAndDeletedAtIsNullOrderByCreatedAtDesc(recipeId)
                 .stream()
                 .map(this::mapToCommentResponse)
                 .collect(Collectors.toList());
     }
 
+    // ===== HELPER METHOD: Lấy userId từ SecurityContext =====
+    private UUID getCurrentUserId() {
+        // Lấy từ header X-User-ID hoặc từ JWT trong SecurityContext
+        // Tùy thuộc vào cách bạn implement authentication
+        try {
+            // Ví dụ: Lấy từ thread-local nếu đã set trong filter
+            // Hoặc parse từ JWT trong SecurityContextHolder
+            return null; // TODO: Implement logic này
+        } catch (Exception e) {
+            return null;
+        }
+    }
     private CommentResponse mapToCommentResponse(Comment comment) {
-        // Gọi User Client lấy thông tin người bình luận
+        // ✅ GỌI USER SERVICE ĐỂ LẤY THÔNG TIN THẬT
         UserBasicInfo userInfo = null;
         try {
             userInfo = userClient.getUserById(comment.getAuthorId());
         } catch (Exception e) {
-            // Log error nhưng không chặn flow
+            System.err.println("⚠️ Cannot fetch user info for: " + comment.getAuthorId());
+            e.printStackTrace();
+            // Fallback data nếu không gọi được User Service
+        }
+
+        // ✅ ĐẾM REACTIONS (Nếu đã implement bảng comment_reactions)
+        long likes = 0;
+        long dislikes = 0;
+        String userReaction = null;
+
+        try {
+            // Chỉ chạy nếu đã có bảng comment_reactions
+            likes = reactionRepository.countByCommentIdAndReactionType(comment.getId(), "like");
+            dislikes = reactionRepository.countByCommentIdAndReactionType(comment.getId(), "dislike");
+
+            // Lấy reaction của user hiện tại
+            UUID currentUserId = getCurrentUserId();
+            if (currentUserId != null) {
+                userReaction = reactionRepository.findReactionTypeByUserIdAndCommentId(currentUserId, comment.getId());
+            }
+        } catch (Exception e) {
+            // Bảng comment_reactions chưa tồn tại → skip
+            System.err.println("⚠️ Reactions table not available yet");
         }
 
         return CommentResponse.builder()
@@ -358,12 +427,15 @@ public class RecipeService {
                 .parentId(comment.getParent() != null ? comment.getParent().getId() : null)
                 .content(comment.getContent())
                 .createdAt(comment.getCreatedAt())
-                // Map thông tin Author
-                .authorDisplayName(userInfo != null ? userInfo.getDisplayName() : "Unknown User")
+                // ✅ FIX: Lấy từ UserBasicInfo
+                .authorDisplayName(userInfo != null ? userInfo.getDisplayName() : "Unknown Chef")
                 .authorProfileImageUrl(userInfo != null ? userInfo.getProfileImageUrl() : null)
+                // Reactions
+                .likes(likes)
+                .dislikes(dislikes)
+                .userReaction(userReaction)
                 .build();
     }
-
     // =========================================================================
     // 5. AI ANALYSIS
     // =========================================================================

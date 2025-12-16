@@ -100,6 +100,16 @@ public class UserController {
 
     @GetMapping("/{userId}/basic-info")
     public ResponseEntity<UserBasicInfoResponse> getUserBasicInfo(@PathVariable UUID userId) {
-        return ResponseEntity.ok(userService.getUserBasicInfo(userId));
+        System.out.println("📞 UserController: Getting basic info for userId: " + userId);
+
+        try {
+            UserBasicInfoResponse response = userService.getUserBasicInfo(userId);
+            System.out.println("✅ UserController: Returning info for: " + response.getDisplayName());
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            System.err.println("❌ UserController: Error getting user info: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.notFound().build();
+        }
     }
 }

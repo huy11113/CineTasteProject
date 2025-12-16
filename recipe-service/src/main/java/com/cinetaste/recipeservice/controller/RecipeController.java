@@ -165,4 +165,16 @@ public class RecipeController {
     ) {
         return ResponseEntity.ok(recipeService.getRecipesByAuthorId(authorId, pageable));
     }
+    // ===== ENDPOINT MỚI: REACT TO COMMENT =====
+    @PostMapping("/{recipeId}/comments/{commentId}/reactions")
+    public ResponseEntity<Void> reactToComment(
+            @PathVariable UUID recipeId,
+            @PathVariable Long commentId,
+            @RequestHeader("X-User-ID") String userIdHeader,
+            @Valid @RequestBody ReactToCommentRequest request
+    ) {
+        UUID userId = UUID.fromString(userIdHeader);
+        recipeService.reactToComment(commentId, userId, request.getReactionType());
+        return ResponseEntity.ok().build();
+    }
 }

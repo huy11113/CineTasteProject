@@ -1,19 +1,20 @@
+// api-gateway/src/main/java/com/cinetaste/apigateway/config/AuthenticationGatewayFilterFactory.java
+
 package com.cinetaste.apigateway.config;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod; // Thêm import này
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
-import java.util.function.Predicate; // Thêm import này
-import org.springframework.http.server.reactive.ServerHttpRequest; // Thêm import này
-
+import java.util.function.Predicate;
+import org.springframework.http.server.reactive.ServerHttpRequest;
 
 @Component
 public class AuthenticationGatewayFilterFactory extends AbstractGatewayFilterFactory<AuthenticationGatewayFilterFactory.Config> {
@@ -30,33 +31,44 @@ public class AuthenticationGatewayFilterFactory extends AbstractGatewayFilterFac
         return (exchange, chain) -> {
             ServerHttpRequest request = exchange.getRequest();
 
-            // --- QUY TẮC MỚI ĐƯỢC CẬP NHẬT ---
-            // Danh sách các endpoints công khai
+            // ===== QUY TẮC PUBLIC ENDPOINTS =====
             List<Predicate<ServerHttpRequest>> publicEndpoints = List.of(
+                    // Auth endpoints
                     r -> r.getURI().getPath().startsWith("/api/auth/"),
+
+                    // User public endpoints
                     r -> r.getMethod().equals(HttpMethod.GET) && r.getURI().getPath().matches("/api/users/[^/]+$"),
-                    r -> r.getMethod().equals(HttpMethod.GET) && r.getURI().getPath().matches("/api/recipes(/[^/]+)?$"), // Chỉ cho phép list và detail
-                    r -> r.getMethod().equals(HttpMethod.GET) && r.getURI().getPath().matches("/api/recipes/[^/]+/comments$") // Comments cũng public
+
+                    // ✅ THÊM: Cho phép Recipe Service gọi User Service (internal call)
+                    r -> r.getMethod().equals(HttpMethod.GET) && r.getURI().getPath().matches("/api/users/[^/]+/basic-info$"),
+
+                    // Recipe public endpoints
+                    r -> r.getMethod().equals(HttpMethod.GET) && r.getURI().getPath().matches("/api/recipes(/[^/]+)?$"),
+                    r -> r.getMethod().equals(HttpMethod.GET) && r.getURI().getPath().matches("/api/recipes/[^/]+/comments$"),
+
+                    // Health check
+                    r -> r.getURI().getPath().startsWith("/actuator/")
             );
 
             // Kiểm tra xem request có khớp với bất kỳ endpoint công khai nào không
             boolean isPublic = publicEndpoints.stream().anyMatch(p -> p.test(request));
 
             if (isPublic) {
-                return chain.filter(exchange); // Nếu là public, cho qua luôn
+                System.out.println("✅ Public endpoint: " + request.getURI().getPath());
+                return chain.filter(exchange);
             }
-            // --- KẾT THÚC CẬP NHẬT ---
 
-
-            // Nếu không phải public, thực hiện kiểm tra token như cũ
+            // ===== KIỂM TRA TOKEN CHO PROTECTED ENDPOINTS =====
             HttpHeaders headers = request.getHeaders();
             if (!headers.containsKey(HttpHeaders.AUTHORIZATION)) {
+                System.err.println("❌ Missing Authorization header for: " + request.getURI().getPath());
                 return onError(exchange, HttpStatus.UNAUTHORIZED);
             }
 
             String authHeader = headers.getFirst(HttpHeaders.AUTHORIZATION);
 
             if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                System.err.println("❌ Invalid Authorization header format");
                 return onError(exchange, HttpStatus.UNAUTHORIZED);
             }
 
@@ -64,10 +76,13 @@ public class AuthenticationGatewayFilterFactory extends AbstractGatewayFilterFac
 
             try {
                 if (jwtUtil.isTokenExpired(token)) {
+                    System.err.println("❌ Token expired");
                     return onError(exchange, HttpStatus.UNAUTHORIZED);
                 }
 
                 String userId = jwtUtil.extractClaim(token, claims -> claims.get("userId", String.class));
+
+                System.out.println("✅ Authenticated user: " + userId + " for path: " + request.getURI().getPath());
 
                 ServerWebExchange modifiedExchange = exchange.mutate()
                         .request(builder -> builder.header("X-User-ID", userId))
@@ -76,6 +91,7 @@ public class AuthenticationGatewayFilterFactory extends AbstractGatewayFilterFac
                 return chain.filter(modifiedExchange);
 
             } catch (Exception e) {
+                System.err.println("❌ Token validation failed: " + e.getMessage());
                 return onError(exchange, HttpStatus.UNAUTHORIZED);
             }
         };
